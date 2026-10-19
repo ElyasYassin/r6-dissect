@@ -46,7 +46,8 @@ Example output (abbreviated):
       "id": 1830934665040226621,
       "username": "IanFiftyForty",
       "teamIndex": 0,
-      "operator": { "name": "Oryx", "id": 104189664155 }
+      "operator": { "name": "Oryx", "id": 104189664155 },
+      "loadout": { "primary": 53995319912, "secondary": 127174503972, "gadget": 127363389074, "ability": 201523838476 }
     }
   ],
   "matchFeedback": [
@@ -63,6 +64,8 @@ Example output (abbreviated):
   ]
 }
 ```
+Loadouts (Y8S1+) are the game's asset IDs for the primary/secondary weapon, secondary gadget and operator ability at the end of the preparation phase. IDs are stable across seasons and shared by every operator who can equip the item; names are not resolved.
+
 Export the entire match:
 ```bash
 r6-dissect Match-2026-03-26_21-19-17-21932 -o match.json

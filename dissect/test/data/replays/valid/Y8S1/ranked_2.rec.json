@@ -53,7 +53,13 @@
 				"roleImage": 1494825824,
 				"roleName": "CASTLE",
 				"rolePortrait": 27880706756,
-				"spawn": "1F Staff Room, 1F Open Area"
+				"spawn": "1F Staff Room, 1F Open Area",
+				"loadout": {
+					"primary": 1366019640,
+					"secondary": 139558931725,
+					"gadget": 127363389074,
+					"ability": 133651069216
+				}
 			},
 			{
 				"id": 17668758393748689036,
@@ -69,7 +75,13 @@
 				"roleImage": 183220539138,
 				"roleName": "MOZZIE",
 				"rolePortrait": 174977498152,
-				"spawn": "1F Staff Room, 1F Open Area"
+				"spawn": "1F Staff Room, 1F Open Area",
+				"loadout": {
+					"primary": 168013421941,
+					"secondary": 168013421977,
+					"gadget": 133651070294,
+					"ability": 184227273319
+				}
 			},
 			{
 				"id": 1228046118657654424,
@@ -85,7 +97,13 @@
 				"roleImage": 104189664208,
 				"roleName": "MELUSI",
 				"rolePortrait": 104189664234,
-				"spawn": "1F Staff Room, 1F Open Area"
+				"spawn": "1F Staff Room, 1F Open Area",
+				"loadout": {
+					"primary": 1366019604,
+					"secondary": 68967567430,
+					"gadget": 133651070318,
+					"ability": 201523838488
+				}
 			},
 			{
 				"id": 11184268148855488270,
@@ -101,7 +119,13 @@
 				"roleImage": 1494825836,
 				"roleName": "ROOK",
 				"rolePortrait": 27880706877,
-				"spawn": "1F Staff Room, 1F Open Area"
+				"spawn": "1F Staff Room, 1F Open Area",
+				"loadout": {
+					"primary": 1366019628,
+					"secondary": 1366019472,
+					"gadget": 127363389074,
+					"ability": 133651069348
+				}
 			},
 			{
 				"id": 7237043221017403435,
@@ -117,7 +141,13 @@
 				"roleImage": 104189664639,
 				"roleName": "ARUNI",
 				"rolePortrait": 104189664665,
-				"spawn": "1F Staff Room, 1F Open Area"
+				"spawn": "1F Staff Room, 1F Open Area",
+				"loadout": {
+					"primary": 78526932091,
+					"secondary": 38581443676,
+					"gadget": 243267468233,
+					"ability": 201523838512
+				}
 			},
 			{
 				"id": 17135695547652681161,
@@ -129,7 +159,13 @@
 					"id": 92270642240
 				},
 				"alliance": 0,
-				"spawn": "Parking Front"
+				"spawn": "Parking Front",
+				"loadout": {
+					"primary": 39149214704,
+					"secondary": 39149214668,
+					"gadget": 133651070288,
+					"ability": 133651069276
+				}
 			},
 			{
 				"id": 2789079261592950566,
@@ -141,7 +177,12 @@
 					"id": 92270642539
 				},
 				"alliance": 0,
-				"spawn": "Alley Access"
+				"spawn": "Alley Access",
+				"loadout": {
+					"primary": 133651069198,
+					"secondary": 1366019496,
+					"gadget": 133651070312
+				}
 			},
 			{
 				"id": 8497140181552389952,
@@ -153,7 +194,13 @@
 					"id": 104189664390
 				},
 				"alliance": 0,
-				"spawn": "Alley Access"
+				"spawn": "Alley Access",
+				"loadout": {
+					"primary": 1366019220,
+					"secondary": 1366019472,
+					"gadget": 133651070306,
+					"ability": 201523838482
+				}
 			},
 			{
 				"id": 3393957052367340279,
@@ -165,7 +212,13 @@
 					"id": 288200866821
 				},
 				"alliance": 0,
-				"spawn": "Alley Access"
+				"spawn": "Alley Access",
+				"loadout": {
+					"primary": 387336878940,
+					"secondary": 139558931725,
+					"gadget": 133651070312,
+					"ability": 288200866756
+				}
 			},
 			{
 				"id": 5494154366455852855,
@@ -177,7 +230,13 @@
 					"id": 104189661861
 				},
 				"alliance": 0,
-				"spawn": "Alley Access"
+				"spawn": "Alley Access",
+				"loadout": {
+					"primary": 55586802030,
+					"secondary": 350658628377,
+					"gadget": 133651070240,
+					"ability": 133651069312
+				}
 			}
 		],
 		"gmSettings": [

@@ -42,6 +42,7 @@ type Reader struct {
 	pendingDefuserPlantIdx   int                // Y10S4+: index into MatchFeedback for DefuserPlantComplete/DisableComplete with unknown player (-1 = none)
 	pendingDefuserIsPlant    bool               // Y10S4+: true if pending event is plant (attacker), false if disable (defender)
 	lastPlayerScores         map[int]uint32     // Y10S4+: last known score per player index (for detecting +100 plant/disable bonus)
+	inventory                *inventoryState    // Y8S1+: player inventories for loadouts
 	pendingRevives           []scoreReviveCandidate
 	Header                   Header        `json:"header"`
 	MatchFeedback            []MatchUpdate `json:"matchFeedback"`
@@ -94,6 +95,7 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 	r.Listen([]byte{0xEC, 0xDA, 0x4F, 0x80}, readScoreboardScore)
 	r.Listen([]byte{0x4D, 0x73, 0x7F, 0x9E}, readScoreboardAssists)
 	r.Listen([]byte{0x1C, 0xD2, 0xB1, 0x9D}, readScoreboardKills)
+	r.listenLoadouts()
 	return r, err
 }
 
@@ -187,20 +189,50 @@ type match struct {
 
 func (r *Reader) worker(start int, end int, wg *sync.WaitGroup, matches chan<- match) {
 	defer wg.Done()
+	// indexes[j] is the number of bytes of query j matched so far. Only queries
+	// with a partial match (active) or whose first byte matches the current byte
+	// are compared, which is equivalent to comparing every query at every byte.
 	indexes := make([]int, len(r.queries))
+	var startsWith [256][]int
+	for j, query := range r.queries {
+		startsWith[query[0]] = append(startsWith[query[0]], j)
+	}
+	active := make([]int, 0, len(r.queries))
+	next := make([]int, 0, len(r.queries))
+	started := make([]int, 0, len(r.queries))
 	log.Debug().Int("start", start).Int("end", end).Msg("worker")
 	for i := start; i <= end; i++ {
-		for j, query := range r.queries {
-			if r.b[i] == query[indexes[j]] {
+		c := r.b[i]
+		started = started[:0]
+		for _, j := range startsWith[c] {
+			if indexes[j] == 0 {
+				started = append(started, j)
+			}
+		}
+		next = next[:0]
+		for _, j := range active {
+			query := r.queries[j]
+			if c == query[indexes[j]] {
 				indexes[j]++
 				if indexes[j] == len(query) {
 					indexes[j] = 0
 					matches <- match{i, j}
+				} else {
+					next = append(next, j)
 				}
 			} else {
 				indexes[j] = 0
 			}
 		}
+		for _, j := range started {
+			if len(r.queries[j]) == 1 {
+				matches <- match{i, j}
+				continue
+			}
+			indexes[j] = 1
+			next = append(next, j)
+		}
+		active, next = next, active
 	}
 }
 
@@ -259,6 +291,7 @@ func (r *Reader) Read() (err error) {
 		r.stampNew(n)
 		r.detectRevivesFromScore()
 		r.detectBleedouts()
+		r.applyLoadouts()
 	}
 	r.b = nil
 	return err
@@ -282,7 +315,7 @@ func (r *Reader) Listen(pattern []byte, callback func(r *Reader) error) {
 	for i = 0; i < len(r.queries); i++ {
 		if bytes.Equal(r.queries[i], pattern) {
 			r.listeners[i] = append(r.listeners[i], callback)
-			break
+			return
 		}
 	}
 	r.queries = append(r.queries, pattern)
