@@ -114,6 +114,24 @@ func main() {
 }
 ```
 
+## Shared Library (FFI)
+Each release includes `libr6dissect` for Linux, Windows and macOS, for use from other languages via FFI.
+```c
+char* dissect_read(char* path); // returns {"data": ...} or {"error": "..."} as JSON
+void dissect_free(char* ptr);   // release the string returned by dissect_read
+```
+Example with Python's `ctypes`:
+```python
+import ctypes, json
+lib = ctypes.CDLL("./libr6dissect-linux-amd64.so")
+lib.dissect_read.restype = ctypes.c_void_p
+lib.dissect_read.argtypes = [ctypes.c_char_p]
+lib.dissect_free.argtypes = [ctypes.c_void_p]
+ptr = lib.dissect_read(b"Match-2026-03-26_21-19-17-21932")
+result = json.loads(ctypes.string_at(ptr))
+lib.dissect_free(ptr)
+```
+
 ## Updating Operator Data
 When new operators are added to the game, regenerate the operator roles mapping:
 ```bash
