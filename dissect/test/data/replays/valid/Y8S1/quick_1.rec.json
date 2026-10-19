@@ -259,7 +259,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -38,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -301,8 +301,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "A-._",
 			"target": "Clampett_",
@@ -330,20 +330,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "A-._",
-			"target": "Clampett_",
-			"headshot": false,
-			"time": "2:28",
-			"timeInSeconds": 148,
-			"phase": "Action",
-			"elapsedSeconds": 31,
-			"dbnoBy": "A-._"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "hello182",
 			"target": "itsrafaelgotu",
 			"headshot": false,
@@ -370,20 +356,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "hello182",
-			"target": "itsrafaelgotu",
-			"headshot": false,
-			"time": "2:16",
-			"timeInSeconds": 136,
-			"phase": "Action",
-			"elapsedSeconds": 43,
-			"dbnoBy": "hello182"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "gbarna.djk",
 			"target": "SCP-31870",
 			"headshot": true,
@@ -404,20 +376,6 @@
 			"timeInSeconds": 125,
 			"phase": "Action",
 			"elapsedSeconds": 54
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "gbarna.djk",
-			"target": "SCP-31870",
-			"headshot": true,
-			"time": "2:05",
-			"timeInSeconds": 125,
-			"phase": "Action",
-			"elapsedSeconds": 54,
-			"dbnoBy": "gbarna.djk"
 		},
 		{
 			"type": {

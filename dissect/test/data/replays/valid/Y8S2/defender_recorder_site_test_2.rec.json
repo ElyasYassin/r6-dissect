@@ -258,7 +258,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -21,
 			"message": "3"
 		},
 		{
@@ -269,7 +269,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -21,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -309,8 +309,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "redraskal",
 			"target": "Mr.Cuhh",
@@ -338,20 +338,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "redraskal",
-			"target": "Mr.Cuhh",
-			"headshot": false,
-			"time": "2:20",
-			"timeInSeconds": 140,
-			"phase": "Action",
-			"elapsedSeconds": 39,
-			"dbnoBy": "redraskal"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "MUSTARD691",
 			"target": "Shives007",
 			"headshot": true,
@@ -378,20 +364,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "MUSTARD691",
-			"target": "Shives007",
-			"headshot": true,
-			"time": "2:00",
-			"timeInSeconds": 120,
-			"phase": "Action",
-			"elapsedSeconds": 59,
-			"dbnoBy": "MUSTARD691"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "Melon_.-",
 			"target": "weasil4211",
 			"headshot": true,
@@ -412,20 +384,6 @@
 			"timeInSeconds": 100,
 			"phase": "Action",
 			"elapsedSeconds": 79
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "Melon_.-",
-			"target": "weasil4211",
-			"headshot": true,
-			"time": "1:40",
-			"timeInSeconds": 100,
-			"phase": "Action",
-			"elapsedSeconds": 79,
-			"dbnoBy": "Melon_.-"
 		}
 	]
 }

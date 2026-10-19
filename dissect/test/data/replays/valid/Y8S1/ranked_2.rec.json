@@ -258,7 +258,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -11,
 			"message": "3"
 		},
 		{
@@ -269,7 +269,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -11,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -322,8 +322,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "DejaVu_BTW",
 			"target": "Erdnuss.SOOS",
@@ -335,8 +335,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "Knoblauch.SOOS",
 			"target": "DejaVu_BTW",
@@ -350,20 +350,6 @@
 			"type": {
 				"name": "Kill",
 				"id": 0
-			},
-			"username": "DejaVu_BTW",
-			"target": "Erdnuss.SOOS",
-			"headshot": true,
-			"time": "0:40",
-			"timeInSeconds": 40,
-			"phase": "Action",
-			"elapsedSeconds": 139,
-			"dbnoBy": "DejaVu_BTW"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
 			},
 			"username": "Hellcat352020",
 			"target": "Knoblauch.SOOS",
@@ -377,20 +363,6 @@
 			"type": {
 				"name": "Kill",
 				"id": 0
-			},
-			"username": "Knoblauch.SOOS",
-			"target": "DejaVu_BTW",
-			"headshot": true,
-			"time": "0:40",
-			"timeInSeconds": 40,
-			"phase": "Action",
-			"elapsedSeconds": 139,
-			"dbnoBy": "Knoblauch.SOOS"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
 			},
 			"username": "Vanille.SOOS",
 			"target": "SZIATEBUZI3156",
@@ -405,20 +377,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "Hellcat352020",
-			"target": "Knoblauch.SOOS",
-			"headshot": false,
-			"time": "0:37",
-			"timeInSeconds": 37,
-			"phase": "Action",
-			"elapsedSeconds": 142,
-			"dbnoBy": "Hellcat352020"
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
 			"username": "Luckeyleader",
 			"target": "Vanille.SOOS",
 			"headshot": false,
@@ -426,20 +384,6 @@
 			"timeInSeconds": 35,
 			"phase": "Action",
 			"elapsedSeconds": 144
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "Vanille.SOOS",
-			"target": "SZIATEBUZI3156",
-			"headshot": false,
-			"time": "0:35",
-			"timeInSeconds": 35,
-			"phase": "Action",
-			"elapsedSeconds": 144,
-			"dbnoBy": "Vanille.SOOS"
 		}
 	]
 }

@@ -381,8 +381,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "flux_",
 			"target": "KoolAidAF1",
@@ -404,20 +404,6 @@
 			"timeInSeconds": 99,
 			"phase": "Action",
 			"elapsedSeconds": 80
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "flux_",
-			"target": "KoolAidAF1",
-			"headshot": false,
-			"time": "1:39",
-			"timeInSeconds": 99,
-			"phase": "Action",
-			"elapsedSeconds": 80,
-			"dbnoBy": "flux_"
 		},
 		{
 			"type": {

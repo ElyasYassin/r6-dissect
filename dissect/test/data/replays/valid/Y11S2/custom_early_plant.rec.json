@@ -314,8 +314,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "hattttttttt",
 			"target": "HokiesHi",
@@ -343,22 +343,9 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "hattttttttt",
-			"target": "HokiesHi",
-			"headshot": true,
-			"time": "2:42",
-			"timeInSeconds": 162,
-			"phase": "Action",
-			"elapsedSeconds": 17,
-			"dbnoBy": "hattttttttt"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "Ark6444.HKM",
 			"target": "flux_",
+			"headshot": false,
 			"time": "2:28",
 			"timeInSeconds": 148,
 			"phase": "Action",
@@ -368,20 +355,6 @@
 			"type": {
 				"name": "Kill",
 				"id": 0
-			},
-			"username": "Ark6444.HKM",
-			"target": "flux_",
-			"headshot": false,
-			"time": "2:28",
-			"timeInSeconds": 148,
-			"phase": "Action",
-			"elapsedSeconds": 31,
-			"dbnoBy": "Ark6444.HKM"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
 			},
 			"username": "RYCEEEEEEEEEEEE",
 			"target": "Ark6444.HKM",
@@ -393,8 +366,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "MyzCNCBunny",
 			"target": "O.ni.",
@@ -408,20 +381,6 @@
 			"type": {
 				"name": "Kill",
 				"id": 0
-			},
-			"username": "RYCEEEEEEEEEEEE",
-			"target": "Ark6444.HKM",
-			"headshot": true,
-			"time": "2:18",
-			"timeInSeconds": 138,
-			"phase": "Action",
-			"elapsedSeconds": 41,
-			"dbnoBy": "RYCEEEEEEEEEEEE"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
 			},
 			"username": "hattttttttt",
 			"target": "KoolAidAF1",
@@ -430,20 +389,6 @@
 			"timeInSeconds": 138,
 			"phase": "Action",
 			"elapsedSeconds": 41
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "MyzCNCBunny",
-			"target": "O.ni.",
-			"headshot": true,
-			"time": "2:18",
-			"timeInSeconds": 138,
-			"phase": "Action",
-			"elapsedSeconds": 41,
-			"dbnoBy": "MyzCNCBunny"
 		},
 		{
 			"type": {
@@ -457,20 +402,6 @@
 			"timeInSeconds": 134,
 			"phase": "Action",
 			"elapsedSeconds": 45
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "hattttttttt",
-			"target": "KoolAidAF1",
-			"headshot": true,
-			"time": "2:14",
-			"timeInSeconds": 134,
-			"phase": "Action",
-			"elapsedSeconds": 45,
-			"dbnoBy": "hattttttttt"
 		},
 		{
 			"type": {

@@ -259,7 +259,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -28,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -359,8 +359,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "D0n4ldDuck69",
 			"target": "redraskal",
@@ -388,20 +388,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "D0n4ldDuck69",
-			"target": "redraskal",
-			"headshot": false,
-			"time": "2:23",
-			"timeInSeconds": 143,
-			"phase": "Action",
-			"elapsedSeconds": 36,
-			"dbnoBy": "D0n4ldDuck69"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "phsVB.mid",
 			"target": "Dyslexic-Batnam",
 			"headshot": true,
@@ -412,8 +398,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "FunTimeSpacey",
 			"target": "D0n4ldDuck69",
@@ -428,20 +414,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "phsVB.mid",
-			"target": "Dyslexic-Batnam",
-			"headshot": true,
-			"time": "2:10",
-			"timeInSeconds": 130,
-			"phase": "Action",
-			"elapsedSeconds": 49,
-			"dbnoBy": "phsVB.mid"
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
 			"username": "Kmgraytrone747",
 			"target": "FunTimeSpacey",
 			"headshot": false,
@@ -449,20 +421,6 @@
 			"timeInSeconds": 127,
 			"phase": "Action",
 			"elapsedSeconds": 52
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "FunTimeSpacey",
-			"target": "D0n4ldDuck69",
-			"headshot": false,
-			"time": "2:07",
-			"timeInSeconds": 127,
-			"phase": "Action",
-			"elapsedSeconds": 52,
-			"dbnoBy": "FunTimeSpacey"
 		}
 	]
 }

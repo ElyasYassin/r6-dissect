@@ -41,6 +41,11 @@ func (r *Reader) updateClock(t float64) {
 		r.time = t
 		return
 	}
+	// a lone 0 before the first countdown is a placeholder, not a countdown
+	if !c.started && t == 0 {
+		r.time = t
+		return
+	}
 	// a new countdown starts with the first timer value or whenever the timer jumps up
 	if !c.started || t > r.time+1 {
 		switch {
@@ -92,6 +97,22 @@ func (r *Reader) stamp(u *MatchUpdate) {
 	u.ElapsedSeconds = r.elapsed()
 }
 
+// backfillLeadingUpdates gives events recorded before the clock started the phase and
+// elapsed time of the first stamped event, so elapsedSeconds never decreases.
+func (r *Reader) backfillLeadingUpdates() {
+	first := -1
+	for i := range r.MatchFeedback {
+		if r.MatchFeedback[i].Phase != "" {
+			first = i
+			break
+		}
+	}
+	for i := 0; i < first; i++ {
+		r.MatchFeedback[i].Phase = r.MatchFeedback[first].Phase
+		r.MatchFeedback[i].ElapsedSeconds = r.MatchFeedback[first].ElapsedSeconds
+	}
+}
+
 func readTime(r *Reader) error {
 	time, err := r.Uint32()
 	if err != nil {
@@ -132,6 +153,8 @@ func (r *Reader) roundEnd() {
 
 	planter := -1
 	disabler := -1
+	planted := false
+	dead := make(map[string]bool)
 	deaths := make(map[int]int)
 	sizes := make(map[int]int)
 	roles := make(map[int]TeamRole)
@@ -155,24 +178,19 @@ func (r *Reader) roundEnd() {
 		u := &r.MatchFeedback[i]
 		switch u.Type {
 		case Kill:
-			if ti := r.PlayerIndexByUsername(u.Target); ti >= 0 {
+			if ti := r.PlayerIndexByUsername(u.Target); ti >= 0 && !dead[u.Target] {
+				dead[u.Target] = true
 				deaths[r.Header.Players[ti].TeamIndex]++
-			}
-			// fix killer username
-			if len(u.usernameFromScoreboard) > 0 {
-				log.Debug().
-					Str("original", u.Username).
-					Str("corrected", u.usernameFromScoreboard).
-					Str("target", u.Target).
-					Msg("scoreboard_kill_correction")
-				u.Username = u.usernameFromScoreboard
 			}
 			break
 		case Death:
-			if ti := r.PlayerIndexByUsername(u.Username); ti >= 0 {
+			if ti := r.PlayerIndexByUsername(u.Username); ti >= 0 && !dead[u.Username] {
+				dead[u.Username] = true
 				deaths[r.Header.Players[ti].TeamIndex]++
 			}
 		case DefuserPlantComplete:
+			// the planter may be unknown, the defuser was planted regardless
+			planted = true
 			planter = r.PlayerIndexByUsername(u.Username)
 			break
 		case DefuserDisableStart:
@@ -211,7 +229,7 @@ func (r *Reader) roundEnd() {
 		}
 		loser := winner ^ 1
 		switch {
-		case planter > -1 && roles[winner] == Defense:
+		case planted && roles[winner] == Defense:
 			// once the defuser is planted, defense can only win by disabling it
 			username := ""
 			if disabler >= 0 && disabler < len(r.Header.Players) {
@@ -226,7 +244,7 @@ func (r *Reader) roundEnd() {
 			r.MatchFeedback = append(r.MatchFeedback, u)
 			log.Debug().Interface("match_update", u).Msg("inferred DefuserDisableComplete")
 			r.Header.Teams[winner].WinCondition = DisabledDefuser
-		case planter > -1:
+		case planted:
 			r.Header.Teams[winner].WinCondition = DefusedBomb
 		case sizes[loser] > 0 && deaths[loser] >= sizes[loser]:
 			r.Header.Teams[winner].WinCondition = KilledOpponents
@@ -236,9 +254,16 @@ func (r *Reader) roundEnd() {
 		return
 	}
 
-	if planter > -1 {
-		r.Header.Teams[r.Header.Players[planter].TeamIndex].Won = true
-		r.Header.Teams[r.Header.Players[planter].TeamIndex].WinCondition = DefusedBomb
+	if planted {
+		// the planter's team plants the defuser; without a known planter it is the attacking team
+		team := 0
+		if planter > -1 {
+			team = r.Header.Players[planter].TeamIndex
+		} else if roles[1] == Attack {
+			team = 1
+		}
+		r.Header.Teams[team].Won = true
+		r.Header.Teams[team].WinCondition = DefusedBomb
 		return
 	}
 

@@ -331,7 +331,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -38,
 			"message": "0"
 		},
 		{
@@ -342,7 +342,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -38,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -416,8 +416,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "qtNolf.Vega",
 			"target": "Axrzen.ND1",
@@ -429,8 +429,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "Bashaa.ND1",
 			"target": "ilyPozo.Vega",
@@ -445,20 +445,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "qtNolf.Vega",
-			"target": "Axrzen.ND1",
-			"headshot": false,
-			"time": "1:35",
-			"timeInSeconds": 95,
-			"phase": "Action",
-			"elapsedSeconds": 84,
-			"dbnoBy": "qtNolf.Vega"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "Ben.ND1",
 			"target": "qtNolf.Vega",
 			"headshot": false,
@@ -471,20 +457,6 @@
 			"type": {
 				"name": "Kill",
 				"id": 0
-			},
-			"username": "Bashaa.ND1",
-			"target": "ilyPozo.Vega",
-			"headshot": false,
-			"time": "1:34",
-			"timeInSeconds": 94,
-			"phase": "Action",
-			"elapsedSeconds": 85,
-			"dbnoBy": "Bashaa.ND1"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
 			},
 			"username": "OxyD.Vega",
 			"target": "Ben.ND1",
@@ -499,20 +471,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "Ben.ND1",
-			"target": "qtNolf.Vega",
-			"headshot": false,
-			"time": "1:33",
-			"timeInSeconds": 93,
-			"phase": "Action",
-			"elapsedSeconds": 86,
-			"dbnoBy": "Ben.ND1"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
 			"username": "yMk.Vega",
 			"target": "Bashaa.ND1",
 			"headshot": true,
@@ -526,20 +484,6 @@
 				"name": "Kill",
 				"id": 0
 			},
-			"username": "OxyD.Vega",
-			"target": "Ben.ND1",
-			"headshot": false,
-			"time": "1:27",
-			"timeInSeconds": 87,
-			"phase": "Action",
-			"elapsedSeconds": 92,
-			"dbnoBy": "OxyD.Vega"
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
 			"username": "prvx.Vega",
 			"target": "zTHMS.ND1",
 			"headshot": false,
@@ -547,20 +491,6 @@
 			"timeInSeconds": 0,
 			"phase": "Action",
 			"elapsedSeconds": 179
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "yMk.Vega",
-			"target": "Bashaa.ND1",
-			"headshot": true,
-			"time": "0:00",
-			"timeInSeconds": 0,
-			"phase": "Action",
-			"elapsedSeconds": 179,
-			"dbnoBy": "yMk.Vega"
 		}
 	]
 }

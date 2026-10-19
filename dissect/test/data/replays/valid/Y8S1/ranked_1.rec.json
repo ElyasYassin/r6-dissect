@@ -258,7 +258,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -28,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -341,8 +341,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "andony._.",
 			"target": "Erdnuss.SOOS",
@@ -354,8 +354,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "Knoblauch.SOOS",
 			"target": "QWERTUSZ",
@@ -364,20 +364,6 @@
 			"timeInSeconds": 7,
 			"phase": "Action",
 			"elapsedSeconds": 172
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "andony._.",
-			"target": "Erdnuss.SOOS",
-			"headshot": false,
-			"time": "0:07",
-			"timeInSeconds": 7,
-			"phase": "Action",
-			"elapsedSeconds": 172,
-			"dbnoBy": "andony._."
 		},
 		{
 			"type": {
@@ -391,20 +377,6 @@
 			"timeInSeconds": 7,
 			"phase": "Action",
 			"elapsedSeconds": 172
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "Knoblauch.SOOS",
-			"target": "QWERTUSZ",
-			"headshot": false,
-			"time": "0:07",
-			"timeInSeconds": 7,
-			"phase": "Action",
-			"elapsedSeconds": 172,
-			"dbnoBy": "Knoblauch.SOOS"
 		},
 		{
 			"type": {

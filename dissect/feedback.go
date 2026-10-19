@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"sort"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -25,6 +24,8 @@ const (
 	Battleye
 	PlayerLeave
 	Other
+	// DBNO and Revive are reserved and not currently emitted; they keep the numeric
+	// IDs of DefuserPlantStop and DefuserDisableStop stable.
 	DBNO
 	Revive
 	DefuserPlantStop
@@ -32,124 +33,19 @@ const (
 )
 
 type MatchUpdate struct {
-	Type                   MatchUpdateType `json:"type"`
-	Username               string          `json:"username,omitempty"`
-	Target                 string          `json:"target,omitempty"`
-	Headshot               *bool           `json:"headshot,omitempty"`
-	Time                   string          `json:"time"`
-	TimeInSeconds          float64         `json:"timeInSeconds"`
-	Phase                  RoundPhase      `json:"phase,omitempty"`
-	ElapsedSeconds         float64         `json:"elapsedSeconds"`
-	Message                string          `json:"message,omitempty"`
-	Operator               Operator        `json:"operator,omitempty"`
-	TeamKill               bool            `json:"teamKill,omitempty"`
-	DBNOBy                 string          `json:"dbnoBy,omitempty"`
-	FinishedBy             string          `json:"finishedBy,omitempty"`
-	BleedOut               bool            `json:"bleedOut,omitempty"`
-	usernameFromScoreboard string
-}
-
-func (r *Reader) isValidScoreboardCorrection(correctedKiller string, target string) bool {
-	if correctedKiller == target || len(correctedKiller) == 0 {
-		return false
-	}
-	killerIdx := r.PlayerIndexByUsername(correctedKiller)
-	targetIdx := r.PlayerIndexByUsername(target)
-	if killerIdx < 0 || targetIdx < 0 {
-		return false
-	}
-	return r.Header.Players[killerIdx].TeamIndex != r.Header.Players[targetIdx].TeamIndex
-}
-
-func (r *Reader) detectRevivesFromScore() {
-	sort.SliceStable(r.pendingRevives, func(i, j int) bool {
-		return r.pendingRevives[i].ElapsedSeconds < r.pendingRevives[j].ElapsedSeconds
-	})
-	for _, candidate := range r.pendingRevives {
-		r.recordReviveFromScore(candidate)
-	}
-	r.pendingRevives = nil
-}
-
-func (r *Reader) recordReviveFromScore(candidate scoreReviveCandidate) {
-	targets := r.unresolvedDBNOTargetsForReviver(candidate.Username, candidate.ElapsedSeconds)
-	if len(targets) == 0 {
-		return
-	}
-	target := ""
-	if len(targets) == 1 {
-		target = targets[0]
-	}
-	u := MatchUpdate{
-		Type:           Revive,
-		Username:       candidate.Username,
-		Target:         target,
-		Time:           candidate.Time,
-		TimeInSeconds:  candidate.TimeInSeconds,
-		Phase:          candidate.Phase,
-		ElapsedSeconds: candidate.ElapsedSeconds,
-	}
-	r.insertMatchUpdateByTime(u)
-	log.Debug().
-		Str("reviver", candidate.Username).
-		Strs("candidates", targets).
-		Str("target", target).
-		Float64("time", candidate.TimeInSeconds).
-		Msg("revive_detected")
-}
-
-func (r *Reader) unresolvedDBNOTargetsForReviver(username string, reviveTime float64) []string {
-	reviverIdx := r.PlayerIndexByUsername(username)
-	if reviverIdx < 0 || reviverIdx >= len(r.Header.Players) {
-		return nil
-	}
-	reviverTeam := r.Header.Players[reviverIdx].TeamIndex
-	targets := make([]string, 0)
-
-	for _, u := range r.MatchFeedback {
-		if u.Type != DBNO || u.Target == "" || u.ElapsedSeconds > reviveTime {
-			continue
-		}
-		targetIdx := r.PlayerIndexByUsername(u.Target)
-		if targetIdx < 0 || targetIdx >= len(r.Header.Players) ||
-			r.Header.Players[targetIdx].TeamIndex != reviverTeam || u.Target == username {
-			continue
-		}
-		if r.dbnoResolvedBetween(u.Target, u.ElapsedSeconds, reviveTime) {
-			continue
-		}
-		targets = append(targets, u.Target)
-	}
-	sort.Strings(targets)
-	return targets
-}
-
-func (r *Reader) dbnoResolvedBetween(target string, dbnoTime float64, reviveTime float64) bool {
-	for _, u := range r.MatchFeedback {
-		if u.ElapsedSeconds < dbnoTime || u.ElapsedSeconds > reviveTime {
-			continue
-		}
-		if u.Type == Kill && u.Target == target {
-			return true
-		}
-		if u.Type == Death && u.Username == target {
-			return true
-		}
-		if u.Type == Revive && u.Target == target {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *Reader) insertMatchUpdateByTime(update MatchUpdate) {
-	for i, existing := range r.MatchFeedback {
-		if existing.ElapsedSeconds > update.ElapsedSeconds {
-			r.MatchFeedback = append(r.MatchFeedback[:i], append([]MatchUpdate{update}, r.MatchFeedback[i:]...)...)
-			return
-		}
-	}
-	r.MatchFeedback = append(r.MatchFeedback, update)
+	Type           MatchUpdateType `json:"type"`
+	Username       string          `json:"username,omitempty"`
+	Target         string          `json:"target,omitempty"`
+	Headshot       *bool           `json:"headshot,omitempty"`
+	Time           string          `json:"time"`
+	TimeInSeconds  float64         `json:"timeInSeconds"`
+	Phase          RoundPhase      `json:"phase,omitempty"`
+	ElapsedSeconds float64         `json:"elapsedSeconds"`
+	Message        string          `json:"message,omitempty"`
+	Operator       Operator        `json:"operator,omitempty"`
+	TeamKill       bool            `json:"teamKill,omitempty"`
+	// Y10S4+: the player whose scoreboard kill counter increased right before this kill packet
+	scoreboardKiller string
 }
 
 func (i MatchUpdateType) MarshalJSON() (text []byte, err error) {
@@ -229,6 +125,10 @@ func readMatchFeedback(r *Reader) error {
 		log.Debug().Str("target", target).Msg("kill target parsed")
 		if empty {
 			if len(target) > 0 {
+				if r.isDead(target) {
+					log.Debug().Str("username", target).Msg("duplicate death filtered (player already dead)")
+					return nil
+				}
 				u := MatchUpdate{
 					Type:          Death,
 					Username:      target,
@@ -262,38 +162,12 @@ func readMatchFeedback(r *Reader) error {
 			*headshotPtr = true
 		}
 		u.Headshot = headshotPtr
-		isFinishOff := false
-		savedOffset := r.offset
-		if err = r.Skip(20); err == nil {
-			dbnoIndicator, byteErr := r.Int()
-			if byteErr == nil && dbnoIndicator == 1 {
-				isFinishOff = true
-			}
-		}
-		r.offset = savedOffset
-		if !isFinishOff {
-			if searchBuf, searchErr := r.Bytes(70); searchErr == nil {
-				dbnoMarker := []byte{0x22, 0x96, 0xe2, 0x29, 0x7f}
-				for j := 0; j <= len(searchBuf)-5; j++ {
-					if bytes.Equal(searchBuf[j:j+5], dbnoMarker) {
-						flagIdx := j + 15
-						if flagIdx < len(searchBuf) && searchBuf[flagIdx] == 0x01 {
-							isFinishOff = true
-						}
-						break
-					}
-				}
-			}
-			r.offset = savedOffset
-		}
-		if !isFinishOff && r.time == 0 && r.timeRaw != "" && r.Header.CodeVersion >= Y10S4 {
-			isFinishOff = true
-		}
+		u.scoreboardKiller = r.lastScoreboardKiller
+		r.lastScoreboardKiller = ""
 		log.Debug().
 			Str("killer", username).
 			Str("target", target).
 			Bool("headshot", headshot == 1).
-			Bool("is_finish_off", isFinishOff).
 			Msg("kill event parsed")
 		killerIdx := r.PlayerIndexByUsername(u.Username)
 		targetIdx := r.PlayerIndexByUsername(u.Target)
@@ -309,131 +183,20 @@ func readMatchFeedback(r *Reader) error {
 				u.TeamKill = true
 			}
 		}
-		if isFinishOff {
-			for i := len(r.MatchFeedback) - 1; i >= 0; i-- {
-				val := r.MatchFeedback[i]
-				if val.Type == Kill && val.Target == u.Target && val.DBNOBy != "" {
-					return nil
-				}
-			}
-			for i := len(r.MatchFeedback) - 1; i >= 0; i-- {
-				val := &r.MatchFeedback[i]
-				if (val.Type == Kill || val.Type == DBNO) && val.Target == u.Target {
-					knocker := val.Username
-					if val.Type == Kill {
-						val.Type = DBNO
-						log.Debug().
-							Str("knocker", knocker).
-							Str("target", u.Target).
-							Msg("converted kill to DBNO")
-					}
-					u.DBNOBy = knocker
-					u.Username = knocker
-					if username != knocker {
-						u.FinishedBy = username
-					}
-					log.Debug().
-						Str("finisher", username).
-						Str("knocker", knocker).
-						Str("target", u.Target).
-						Msg("DBNO finish-off: kill credited to knocker")
-					break
-				}
-			}
-			if u.DBNOBy == "" {
-				dbnoEvent := MatchUpdate{
-					Type:           DBNO,
-					Username:       username,
-					Target:         u.Target,
-					Time:           u.Time,
-					TimeInSeconds:  u.TimeInSeconds,
-					Phase:          u.Phase,
-					ElapsedSeconds: u.ElapsedSeconds,
-				}
-				r.MatchFeedback = append(r.MatchFeedback, dbnoEvent)
-				u.DBNOBy = username
-				log.Debug().
-					Str("knocker", username).
-					Str("target", u.Target).
-					Msg("synthesized DBNO for finish-off")
-			}
-			if r.Header.CodeVersion < Y10S4 && len(r.lastKillerFromScoreboard) > 0 && r.lastKillerFromScoreboard != u.Username &&
-				r.isValidScoreboardCorrection(r.lastKillerFromScoreboard, u.Target) {
-				u.usernameFromScoreboard = r.lastKillerFromScoreboard
-			}
-			r.lastKillerFromScoreboard = ""
-			r.MatchFeedback = append(r.MatchFeedback, u)
-			log.Debug().Interface("match_update", u).Send()
-			return nil
-		}
-		defuserPlantTime := float64(-1)
-		for i := len(r.MatchFeedback) - 1; i >= 0; i-- {
-			val := r.MatchFeedback[i]
-			if val.Type == DefuserPlantComplete {
-				defuserPlantTime = val.ElapsedSeconds
-			}
-			// the target died before the defuser was planted and "dies" again after it
-			inOvertime := u.Phase == PostPlantPhase && val.Phase != PostPlantPhase
-			if val.Type != Kill && val.Type != Death && val.Type != DBNO {
-				continue
-			}
-			if val.Target == u.Target || (val.Type == Death && val.Username == u.Target) {
-				timeDiff := u.ElapsedSeconds - val.ElapsedSeconds
-				if val.Type == Kill && val.DBNOBy == "" && timeDiff >= 0 && timeDiff <= 10 {
-					r.MatchFeedback[i].Type = DBNO
-					finisher := u.Username
-					if u.Username != val.Username {
-						u.FinishedBy = u.Username
-					}
-					u.DBNOBy = val.Username
-					u.Username = val.Username
-					log.Debug().
-						Str("knocker", val.Username).
-						Str("finisher", finisher).
-						Str("target", u.Target).
-						Float64("timeDiff", timeDiff).
-						Msg("inferred DBNO from duplicate kill")
-					break
-				}
-				sameKiller := val.Username == u.Username
-				isPlantBoundaryKill := defuserPlantTime >= 0 && val.ElapsedSeconds >= defuserPlantTime && val.ElapsedSeconds <= defuserPlantTime+1
-				if inOvertime {
-					if !sameKiller {
-						log.Debug().
-							Str("killer", u.Username).
-							Str("target", u.Target).
-							Str("original_killer", val.Username).
-							Float64("existing_time", val.ElapsedSeconds).
-							Float64("new_time", u.ElapsedSeconds).
-							Msg("overtime re-kill allowed (different killer)")
-						break
-					}
-					if !isPlantBoundaryKill {
-						log.Debug().
-							Str("killer", u.Username).
-							Str("target", u.Target).
-							Float64("existing_time", val.ElapsedSeconds).
-							Float64("new_time", u.ElapsedSeconds).
-							Float64("defuser_plant_time", defuserPlantTime).
-							Msg("overtime re-kill allowed (same killer, not plant-boundary)")
-						break
-					}
-				}
+		// The game re-sends kill packets for the same death (same killer, target and
+		// headshot flag, up to ~90 seconds later). The first packet is the actual kill,
+		// so any later packet for a target that is already dead is a duplicate.
+		for _, val := range r.MatchFeedback {
+			if (val.Type == Kill && val.Target == u.Target) || (val.Type == Death && val.Username == u.Target) {
 				log.Debug().
 					Str("killer", u.Username).
 					Str("target", u.Target).
 					Float64("existing_time", val.ElapsedSeconds).
 					Float64("new_time", u.ElapsedSeconds).
-					Bool("plant_boundary", isPlantBoundaryKill).
 					Msg("duplicate kill filtered (target already dead)")
 				return nil
 			}
 		}
-		if r.Header.CodeVersion < Y10S4 && len(r.lastKillerFromScoreboard) > 0 && r.lastKillerFromScoreboard != username &&
-			r.isValidScoreboardCorrection(r.lastKillerFromScoreboard, u.Target) {
-			u.usernameFromScoreboard = r.lastKillerFromScoreboard
-		}
-		r.lastKillerFromScoreboard = ""
 		r.MatchFeedback = append(r.MatchFeedback, u)
 		log.Debug().Interface("match_update", u).Send()
 		return nil
@@ -475,32 +238,13 @@ func readMatchFeedback(r *Reader) error {
 	return nil
 }
 
-// detectBleedouts marks Death events as bleedouts when the player was previously DBNO'd
-// but never confirmed by a Kill event with a FinishedBy.
-func (r *Reader) detectBleedouts() {
-	// Track which players have unresolved DBNOs (knocked but not yet confirmed/killed)
-	dbnoTargets := make(map[string]int) // target -> index of DBNO event
-
-	for i := range r.MatchFeedback {
-		u := &r.MatchFeedback[i]
-		switch u.Type {
-		case DBNO:
-			dbnoTargets[u.Target] = i
-		case Kill:
-			// Kill with DBNOBy means the DBNO was confirmed (finished off)
-			delete(dbnoTargets, u.Target)
-		case Revive:
-			delete(dbnoTargets, u.Target)
-		case Death:
-			// Death event for a player who was previously DBNO'd = bleedout
-			if _, wasDBNO := dbnoTargets[u.Username]; wasDBNO {
-				u.BleedOut = true
-				delete(dbnoTargets, u.Username)
-				log.Debug().
-					Str("username", u.Username).
-					Float64("time", u.TimeInSeconds).
-					Msg("bleedout_detected")
-			}
+// isDead reports whether username already died in this round, either as the target of a
+// Kill or through a Death event.
+func (r *Reader) isDead(username string) bool {
+	for _, u := range r.MatchFeedback {
+		if (u.Type == Kill && u.Target == username) || (u.Type == Death && u.Username == username) {
+			return true
 		}
 	}
+	return false
 }

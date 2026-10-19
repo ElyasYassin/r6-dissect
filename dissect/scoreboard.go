@@ -6,14 +6,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type scoreReviveCandidate struct {
-	Username       string
-	Time           string
-	TimeInSeconds  float64
-	Phase          RoundPhase
-	ElapsedSeconds float64
-}
-
 type Scoreboard struct {
 	Players []ScoreboardPlayer
 }
@@ -60,7 +52,6 @@ func readScoreboardKills(r *Reader) error {
 	idx := r.PlayerIndexByID(id)
 	if idx != -1 {
 		username := r.Header.Players[idx].Username
-		r.lastKillerFromScoreboard = username
 		log.Warn().
 			Str("username", username).
 			Uint32("kills", kills).
@@ -135,8 +126,8 @@ func readScoreboardKillsY10S4(r *Reader, kills uint32) error {
 	}
 
 	username := r.Header.Players[idx].Username
-	r.lastKillerFromScoreboard = username
 	r.scoreboardFinalKills[idx] = kills
+	r.lastScoreboardKiller = username
 	log.Warn().
 		Str("username", username).
 		Uint32("kills", kills).
@@ -285,17 +276,6 @@ func readScoreboardScoreY10S4(r *Reader, score uint32) error {
 			}
 		}
 
-		prevScore := r.lastPlayerScores[idx]
-		if prevScore > 0 && score == prevScore+50 {
-			r.pendingRevives = append(r.pendingRevives, scoreReviveCandidate{
-				Username:       username,
-				Time:           r.timeRaw,
-				TimeInSeconds:  r.time,
-				Phase:          r.clock.phase,
-				ElapsedSeconds: r.elapsed(),
-			})
-		}
-
 		r.lastPlayerScores[idx] = score
 	}
 	log.Debug().
@@ -326,7 +306,7 @@ func (r *Reader) reconcileKillsFromScoreboard() {
 
 	actualKills := make(map[int]int)
 	for _, u := range r.MatchFeedback {
-		if u.Type == Kill {
+		if u.Type == Kill && !u.TeamKill {
 			idx := r.PlayerIndexByUsername(u.Username)
 			if idx >= 0 {
 				actualKills[idx]++
@@ -370,30 +350,38 @@ func (r *Reader) reconcileKillsFromScoreboard() {
 			}
 			overUsername := r.Header.Players[overIdx].Username
 
-			for i := range r.MatchFeedback {
-				if underCredited[ui].diff <= 0 || overCredited[oi].diff <= 0 {
-					break
+			// prefer the kill that directly followed the under-credited player's scoreboard
+			// increment, then fall back to any eligible kill of the over-credited player
+			for pass := 0; pass < 2; pass++ {
+				for i := range r.MatchFeedback {
+					if underCredited[ui].diff <= 0 || overCredited[oi].diff <= 0 {
+						break
+					}
+					u := &r.MatchFeedback[i]
+					if u.Type != Kill || u.TeamKill || u.Username != overUsername {
+						continue
+					}
+					if pass == 0 && u.scoreboardKiller != underUsername {
+						continue
+					}
+					targetIdx := r.PlayerIndexByUsername(u.Target)
+					if targetIdx < 0 {
+						continue
+					}
+					targetTeam := r.Header.Players[targetIdx].TeamIndex
+					if underTeam == targetTeam || underUsername == u.Target {
+						continue
+					}
+					log.Debug().
+						Str("original", overUsername).
+						Str("corrected", underUsername).
+						Str("target", u.Target).
+						Bool("timing_match", pass == 0).
+						Msg("scoreboard_reconcile_kill")
+					u.Username = underUsername
+					underCredited[ui].diff--
+					overCredited[oi].diff--
 				}
-				u := &r.MatchFeedback[i]
-				if u.Type != Kill || u.Username != overUsername {
-					continue
-				}
-				targetIdx := r.PlayerIndexByUsername(u.Target)
-				if targetIdx < 0 {
-					continue
-				}
-				targetTeam := r.Header.Players[targetIdx].TeamIndex
-				if underTeam == targetTeam || underUsername == u.Target {
-					continue
-				}
-				log.Debug().
-					Str("original", overUsername).
-					Str("corrected", underUsername).
-					Str("target", u.Target).
-					Msg("scoreboard_reconcile_kill")
-				u.Username = underUsername
-				underCredited[ui].diff--
-				overCredited[oi].diff--
 			}
 		}
 	}

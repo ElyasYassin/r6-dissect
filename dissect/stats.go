@@ -14,8 +14,6 @@ type PlayerRoundStats struct {
 	Score              int           `json:"score"`
 	Operator           string        `json:"-"`
 	Kills              int           `json:"kills"`
-	DBNOs              int           `json:"dbnos"`
-	Revives            int           `json:"revives"`
 	Died               bool          `json:"died"`
 	Assists            int           `json:"assists"`
 	Headshots          int           `json:"headshots"`
@@ -29,8 +27,6 @@ type PlayerMatchStats struct {
 	TeamIndex          int     `json:"-"`
 	Rounds             int     `json:"rounds"`
 	Kills              int     `json:"kills"`
-	DBNOs              int     `json:"dbnos"`
-	Revives            int     `json:"revives"`
 	Deaths             int     `json:"deaths"`
 	Assists            int     `json:"assists"`
 	Headshots          int     `json:"headshots"`
@@ -137,14 +133,6 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 				stats[t].Died = true
 				lastDeath = t
 			}
-		case DBNO:
-			if known {
-				stats[i].DBNOs += 1
-			}
-		case Revive:
-			if known {
-				stats[i].Revives += 1
-			}
 		case Death:
 			if known {
 				stats[i].Died = true
@@ -177,6 +165,7 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 		username := stats[lastWinnerStanding].Username
 		teamLeft := r.NumPlayers(winningTeamIndex)
 		opponentsAlive := r.NumPlayers(1 - winningTeamIndex)
+		counted := make(map[string]bool)
 		oneVx := 0
 		var clutch *ClutchDetail
 		for _, a := range r.MatchFeedback {
@@ -186,6 +175,12 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 				victim = a.Target
 			case Death, PlayerLeave:
 				victim = a.Username
+			}
+			if counted[victim] {
+				// duplicate packet for a player who already died
+				victim = ""
+			} else if victim != "" {
+				counted[victim] = true
 			}
 			if victim != "" {
 				if teamIndexOf(victim) == winningTeamIndex {
@@ -239,8 +234,6 @@ func (m *MatchReader) PlayerStats() []PlayerMatchStats {
 			i = index[p.Username]
 			stats[i].Rounds += 1
 			stats[i].Kills += p.Kills
-			stats[i].DBNOs += p.DBNOs
-			stats[i].Revives += p.Revives
 			if p.Died {
 				stats[i].Deaths += 1
 			}

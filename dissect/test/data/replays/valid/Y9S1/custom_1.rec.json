@@ -373,8 +373,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "GiIiBVG.a5",
 			"target": "Wry2K",
@@ -396,20 +396,6 @@
 			"timeInSeconds": 121,
 			"phase": "Action",
 			"elapsedSeconds": 58
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "GiIiBVG.a5",
-			"target": "Wry2K",
-			"headshot": false,
-			"time": "2:01",
-			"timeInSeconds": 121,
-			"phase": "Action",
-			"elapsedSeconds": 58,
-			"dbnoBy": "GiIiBVG.a5"
 		},
 		{
 			"type": {

@@ -18,35 +18,34 @@ import (
 var strSep = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 type Reader struct {
-	b                        []byte
-	offset                   int
-	queries                  [][]byte
-	listeners                [][]func(r *Reader) error
-	time                     float64 // in seconds
-	timeRaw                  string  // raw dissect format
-	clock                    roundClock
-	lastDefuserPlayerIndex   int
-	planted                  bool
-	defuserDisabling         bool
-	lastDefuserTimer         float64
-	defuserPawnToSlot        map[[4]byte][4]byte // Y10S4+: maps a pawn entity ID to its player slot entity ID
-	defuserRun               defuserRun          // Y10S4+: the plant/disable action the defuser timer currently belongs to
-	readPartial              bool                // reads up to the player info packets
-	playersRead              int
-	lastKillerFromScoreboard string
-	pendingSBIDs             [][4]byte          // Y10S4+: sbIDs in header-entry order for deferred mapping
-	readPlayerOrder          []int              // Y10S4+: player indices in readPlayer order
-	scoreboardIDToPlayer     map[[4]byte]int    // Y10S4+: maps scoreboard entry ID to player index
-	scoreboardInitialKills   map[[4]byte]uint32 // Y10S4+: cumulative kills at round start per sbID
-	scoreboardFinalKills     map[int]uint32     // Y10S4+: latest cumulative kills seen per player index
-	pendingDefuserPlantIdx   int                // Y10S4+: index into MatchFeedback for DefuserPlantComplete/DisableComplete with unknown player (-1 = none)
-	pendingDefuserIsPlant    bool               // Y10S4+: true if pending event is plant (attacker), false if disable (defender)
-	lastPlayerScores         map[int]uint32     // Y10S4+: last known score per player index (for detecting +100 plant/disable bonus)
-	inventory                *inventoryState    // Y8S1+: player inventories for loadouts
-	pendingRevives           []scoreReviveCandidate
-	Header                   Header        `json:"header"`
-	MatchFeedback            []MatchUpdate `json:"matchFeedback"`
-	Scoreboard               Scoreboard
+	b                      []byte
+	offset                 int
+	queries                [][]byte
+	listeners              [][]func(r *Reader) error
+	time                   float64 // in seconds
+	timeRaw                string  // raw dissect format
+	clock                  roundClock
+	lastDefuserPlayerIndex int
+	planted                bool
+	defuserDisabling       bool
+	lastDefuserTimer       float64
+	defuserPawnToSlot      map[[4]byte][4]byte // Y10S4+: maps a pawn entity ID to its player slot entity ID
+	defuserRun             defuserRun          // Y10S4+: the plant/disable action the defuser timer currently belongs to
+	readPartial            bool                // reads up to the player info packets
+	playersRead            int
+	lastScoreboardKiller   string             // Y10S4+: player whose scoreboard kill counter increased last, until the next kill packet
+	pendingSBIDs           [][4]byte          // Y10S4+: sbIDs in header-entry order for deferred mapping
+	readPlayerOrder        []int              // Y10S4+: player indices in readPlayer order
+	scoreboardIDToPlayer   map[[4]byte]int    // Y10S4+: maps scoreboard entry ID to player index
+	scoreboardInitialKills map[[4]byte]uint32 // Y10S4+: cumulative kills at round start per sbID
+	scoreboardFinalKills   map[int]uint32     // Y10S4+: latest cumulative kills seen per player index
+	pendingDefuserPlantIdx int                // Y10S4+: index into MatchFeedback for DefuserPlantComplete/DisableComplete with unknown player (-1 = none)
+	pendingDefuserIsPlant  bool               // Y10S4+: true if pending event is plant (attacker), false if disable (defender)
+	lastPlayerScores       map[int]uint32     // Y10S4+: last known score per player index (for detecting +100 plant/disable bonus)
+	inventory              *inventoryState    // Y8S1+: player inventories for loadouts
+	Header                 Header             `json:"header"`
+	MatchFeedback          []MatchUpdate      `json:"matchFeedback"`
+	Scoreboard             Scoreboard
 }
 
 // NewReader decompresses in using zstd and
@@ -289,8 +288,7 @@ func (r *Reader) Read() (err error) {
 		r.stopDefuserRun()
 		r.roundEnd()
 		r.stampNew(n)
-		r.detectRevivesFromScore()
-		r.detectBleedouts()
+		r.backfillLeadingUpdates()
 		r.applyLoadouts()
 	}
 	r.b = nil

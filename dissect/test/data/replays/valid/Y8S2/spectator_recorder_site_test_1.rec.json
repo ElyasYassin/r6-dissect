@@ -331,7 +331,7 @@
 			"time": "0:00",
 			"timeInSeconds": 0,
 			"phase": "Prep",
-			"elapsedSeconds": -0,
+			"elapsedSeconds": -22,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -392,8 +392,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "yMk.Vega",
 			"target": "Ben.ND1",
@@ -415,20 +415,6 @@
 			"timeInSeconds": 78,
 			"phase": "Action",
 			"elapsedSeconds": 101
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "yMk.Vega",
-			"target": "Ben.ND1",
-			"headshot": false,
-			"time": "1:18",
-			"timeInSeconds": 78,
-			"phase": "Action",
-			"elapsedSeconds": 101,
-			"dbnoBy": "yMk.Vega"
 		},
 		{
 			"type": {
@@ -458,8 +444,8 @@
 		},
 		{
 			"type": {
-				"name": "DBNO",
-				"id": 11
+				"name": "Kill",
+				"id": 0
 			},
 			"username": "Bashaa.ND1",
 			"target": "ilyPozo.Vega",
@@ -481,20 +467,6 @@
 			"timeInSeconds": 0,
 			"phase": "Action",
 			"elapsedSeconds": 179
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "Bashaa.ND1",
-			"target": "ilyPozo.Vega",
-			"headshot": false,
-			"time": "0:00",
-			"timeInSeconds": 0,
-			"phase": "Action",
-			"elapsedSeconds": 179,
-			"dbnoBy": "Bashaa.ND1"
 		}
 	]
 }
