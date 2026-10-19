@@ -179,6 +179,7 @@ func readPlayer(r *Reader) error {
 }
 
 func readAtkOpSwap(r *Reader) error {
+	patternStart := r.offset - 5
 	op, err := r.Uint64()
 	if err != nil {
 		return err
@@ -210,28 +211,52 @@ func readAtkOpSwap(r *Reader) error {
 		return nil
 	}
 	// after Y9S3 caster view overhaul
-	if err = r.Skip(402); err != nil {
-		return err
-	}
-	// id shows up in player data and in op swaps afaik
-	id, err := r.Uint64()
-	if err != nil {
-		return err
-	}
-	for i, p := range r.Header.Players {
-		if p.uiID == id {
-			r.Header.Players[i].Operator = o
-			u := MatchUpdate{
-				Type:          OperatorSwap,
-				Username:      p.Username,
-				Time:          r.timeRaw,
-				TimeInSeconds: r.time,
-				Operator:      o,
+	// Y11S2: the swap is a property of the player object,
+	// 23 <player object> F93911F2 08 <u64> 22 A9260BE4 08 <op>
+	objectIndex := r.playerIndexByObject(r.opSwapPlayerObject(patternStart))
+	found := false
+	if err = r.Skip(402); err == nil {
+		// id shows up in player data and in op swaps afaik
+		var id uint64
+		if id, err = r.Uint64(); err == nil {
+			for i, p := range r.Header.Players {
+				if p.uiID == id {
+					r.swapOperator(i, o)
+					found = true
+					break
+				}
 			}
-			r.MatchFeedback = append(r.MatchFeedback, u)
-			log.Debug().Interface("match_update", u).Send()
-			break
 		}
 	}
-	return nil
+	if !found && objectIndex > -1 {
+		r.swapOperator(objectIndex, o)
+	}
+	return err
+}
+
+func (r *Reader) swapOperator(i int, o Operator) {
+	r.Header.Players[i].Operator = o
+	u := MatchUpdate{
+		Type:          OperatorSwap,
+		Username:      r.Header.Players[i].Username,
+		Time:          r.timeRaw,
+		TimeInSeconds: r.time,
+		Operator:      o,
+	}
+	r.MatchFeedback = append(r.MatchFeedback, u)
+	log.Debug().Interface("match_update", u).Send()
+}
+
+// opSwapPlayerObject returns the player object an operator property
+// starting at offset belongs to, or 0.
+func (r *Reader) opSwapPlayerObject(offset int) uint64 {
+	const prefix = 1 + handleSize + 4 + 1 + 8 // 23 <player object> F93911F2 08 <u64>
+	if offset < prefix || offset > len(r.b) {
+		return 0
+	}
+	b := r.b[offset-prefix : offset]
+	if b[0] != 0x23 || !bytes.Equal(b[1+handleSize:1+handleSize+5], []byte{0xF9, 0x39, 0x11, 0xF2, 0x08}) {
+		return 0
+	}
+	return readHandle(b[1 : 1+handleSize])
 }

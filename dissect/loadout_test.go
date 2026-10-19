@@ -164,3 +164,32 @@ func TestPlayerObjectBefore(t *testing.T) {
 		t.Fatalf("got player object %x, want f00668ce", got)
 	}
 }
+
+func TestAtkOpSwapByPlayerObject(t *testing.T) {
+	const playerObj = 0xF0066F72
+	var b inventoryBuilder
+	b.WriteByte(0x23)
+	b.handle(playerObj)
+	b.Write([]byte{0xF9, 0x39, 0x11, 0xF2, 0x08})
+	b.handle(358196448678)
+	b.Write([]byte{0x22, 0xA9, 0x26, 0x0B, 0xE4, 0x08})
+	b.handle(uint64(Grim))
+	b.Write(make([]byte, 16))
+	r := &Reader{
+		b: b.Bytes(),
+		Header: Header{
+			CodeVersion: Y11S1,
+			Players:     []Player{{Username: "attacker", DissectID: []byte{2, 0, 0, 0}, Operator: Twitch}},
+		},
+		inventory: newInventoryState(),
+	}
+	r.trackPlayerObject(playerObj, r.Header.Players[0])
+	r.offset = 1 + 8 + 5 + 8 + 5 // just after the A9260BE4 pattern
+	_ = readAtkOpSwap(r)
+	if r.Header.Players[0].Operator != Grim {
+		t.Fatalf("got operator %v, want Grim", r.Header.Players[0].Operator)
+	}
+	if len(r.MatchFeedback) != 1 || r.MatchFeedback[0].Type != OperatorSwap || r.MatchFeedback[0].Operator != Grim {
+		t.Fatalf("unexpected match feedback: %+v", r.MatchFeedback)
+	}
+}
