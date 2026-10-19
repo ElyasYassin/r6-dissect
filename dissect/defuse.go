@@ -261,7 +261,12 @@ func readDefuserTimerLegacy(r *Reader, timer string) error {
 		Time:          r.timeRaw,
 		TimeInSeconds: r.time,
 	}
+	// stamp before the clock switches, the plant is the last event of the action phase
+	r.stamp(&u)
 	r.MatchFeedback = append(r.MatchFeedback, u)
+	if u.Type == DefuserPlantComplete {
+		r.startPostPlant()
+	}
 	log.Debug().Interface("match_update", u).Send()
 
 	r.lastDefuserTimer = timerValue
@@ -394,7 +399,12 @@ func (r *Reader) completeDefuserRun() {
 		Time:          r.timeRaw,
 		TimeInSeconds: r.time,
 	}
+	// stamp before the clock switches, the plant is the last event of the action phase
+	r.stamp(&u)
 	r.MatchFeedback = append(r.MatchFeedback, u)
+	if u.Type == DefuserPlantComplete {
+		r.startPostPlant()
+	}
 	log.Debug().Interface("match_update", u).Send()
 	// if the player is unknown, the scoreboard score handler identifies them via the +100 score bonus
 	if username == "" {

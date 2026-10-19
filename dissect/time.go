@@ -24,6 +24,8 @@ type roundClock struct {
 	phaseStart   float64 // timer value when the current phase started
 	phaseElapsed float64 // elapsed seconds when the current phase started
 	started      bool
+	// set after a plant until the timer shows the defuser countdown
+	awaitCountdown bool
 }
 
 // prepPhaseMax is the longest timer value we consider to be a preparation phase countdown.
@@ -31,6 +33,14 @@ const prepPhaseMax = 60
 
 func (r *Reader) updateClock(t float64) {
 	c := &r.clock
+	if c.awaitCountdown {
+		if t != r.time {
+			c.phaseStart = t
+			c.awaitCountdown = false
+		}
+		r.time = t
+		return
+	}
 	// a new countdown starts with the first timer value or whenever the timer jumps up
 	if !c.started || t > r.time+1 {
 		switch {
@@ -48,6 +58,20 @@ func (r *Reader) updateClock(t float64) {
 		c.started = true
 	}
 	r.time = t
+}
+
+// startPostPlant switches the clock to the post-plant phase when the defuser was planted.
+// The timer then shows the defuser countdown, which is not always an upward jump
+// (e.g. when the defuser is planted with more than 45 seconds left).
+func (r *Reader) startPostPlant() {
+	c := &r.clock
+	if !c.started || c.phase != ActionPhase {
+		return
+	}
+	c.phaseElapsed = r.elapsed()
+	c.phase = PostPlantPhase
+	c.phaseStart = r.time
+	c.awaitCountdown = true
 }
 
 // elapsed returns the seconds since the start of the action phase.
