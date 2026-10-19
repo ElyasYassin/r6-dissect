@@ -55,6 +55,7 @@ type Player struct {
 	Spawn        string   `json:"spawn,omitempty"`
 	DissectID    []byte   `json:"-" deep:"-"` // dissect player id at end of packet (4 bytes)
 	uiID         uint64   `json:"-" deep:"-"`
+	slotID       []byte   `json:"-" deep:"-"` // Y10S4+: player slot entity ID, links defuser pawns to players (4 bytes)
 }
 
 type stringerIntMarshal struct {

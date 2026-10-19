@@ -27,6 +27,8 @@ const (
 	Other
 	DBNO
 	Revive
+	DefuserPlantStop
+	DefuserDisableStop
 )
 
 type MatchUpdate struct {
