@@ -215,6 +215,7 @@ const (
 	Rauora      Operator = 386098331923
 	Denari      Operator = 374667787937
 	SolidSnake  Operator = 444310693746
+	Noor        Operator = 456757346397
 )
 
 // duplicated code here could be avoided by defining a generic function accepting any Number type.

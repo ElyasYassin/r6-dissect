@@ -10,7 +10,7 @@ Download the latest version here: https://github.com/redraskal/r6-dissect/releas
 
 ## Features
 - **Match Info** — Game version, map, gamemode, match type, teams, players, operators
-- **Match Feedback** — Kills, headshots, DBNOs (downs), revives, objective locates, defuser plants/disables, BattlEye bans, DCs
+- **Match Feedback** — Kills, teamkills, headshots, objective locates, defuser plants/disables, BattlEye bans, DCs
 - **Round Timeline** — Every event has a round phase and a monotonic time since the action phase started
 - **Scoreboard** — Per-player kills, assists, deaths, and scores with kill/death reconciliation
 - **Output Formats** — JSON or Excel (.xlsx)
@@ -97,10 +97,8 @@ See example outputs in [/examples](https://github.com/redraskal/r6-dissect/tree/
 | `phase` | `Prep`, `Action` or `PostPlant` (after the defuser was planted). |
 | `elapsedSeconds` | Seconds since the action phase started. Always increases during a round; negative during the preparation phase. Use this to order or compare events. |
 | `teamKill` | The kill was a teamkill. Teamkills count as a death for the victim but not as a kill. |
-| `dbnoBy` / `finishedBy` | For kills of a downed player: `username` and `dbnoBy` are the player who downed them (who gets the kill on the scoreboard), `finishedBy` is the player who finished them off, if different. |
-| `bleedOut` | On `Death` events: the player bled out after being downed. |
 
-Some events are inferred rather than read directly from the replay: on Y10S4+ replays, the defuser planter/disabler is identified from the +100 score bonus, revives from the +50 score bonus, and a `DefuserDisableComplete` is added when defense wins a round after a plant.
+On Y10S4+ replays, the defuser planter/disabler is read from the defuser packets; if that player cannot be resolved, they are inferred from the +100 score bonus or the last player alive. A `DefuserDisableComplete` is added when defense wins a round after a plant without one being recorded. On Y10S4+ replays, the killer of a kill can be corrected from the scoreboard when the kill feed and the scoreboard disagree.
 
 ## Importing a .rec file
 ```go
