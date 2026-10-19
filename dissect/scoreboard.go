@@ -7,9 +7,11 @@ import (
 )
 
 type scoreReviveCandidate struct {
-	Username      string
-	Time          string
-	TimeInSeconds float64
+	Username       string
+	Time           string
+	TimeInSeconds  float64
+	Phase          RoundPhase
+	ElapsedSeconds float64
 }
 
 type Scoreboard struct {
@@ -168,8 +170,10 @@ func readScoreboardAssists(r *Reader) error {
 	username := "N/A"
 	if idx != -1 {
 		username = r.Header.Players[idx].Username
-		r.Scoreboard.Players[idx].Assists = assists
-		r.Scoreboard.Players[idx].AssistsFromRound++
+		if idx < len(r.Scoreboard.Players) {
+			r.Scoreboard.Players[idx].Assists = assists
+			r.Scoreboard.Players[idx].AssistsFromRound++
+		}
 	}
 	log.Debug().
 		Uint32("assists", assists).
@@ -228,32 +232,9 @@ func readScoreboardScore(r *Reader) error {
 	username := "N/A"
 	if idx != -1 {
 		username = r.Header.Players[idx].Username
-
-		prevScore := r.lastPlayerScores[idx]
-		if prevScore > 0 && score > prevScore {
-			delta := score - prevScore
-			if delta == 15 {
-				r.recordScoreBasedDestruction(username, "camera", r.time)
-			} else if delta == 25 {
-				r.recordScoreBasedDestruction(username, "utility", r.time)
-			} else if delta == 10 {
-				role := r.getPlayerTeamRole(username)
-				if role == Defense {
-					r.recordScoreBasedDestruction(username, "drone", r.time)
-				}
-			} else if delta == 20 {
-				r.recordScoreBasedDestruction(username, "gadget_deploy", r.time)
-			} else if delta == 50 {
-				r.pendingRevives = append(r.pendingRevives, scoreReviveCandidate{
-					Username:      username,
-					Time:          r.timeRaw,
-					TimeInSeconds: r.time,
-				})
-			}
+		if idx < len(r.Scoreboard.Players) {
+			r.Scoreboard.Players[idx].Score = score
 		}
-		r.lastPlayerScores[idx] = score
-
-		r.Scoreboard.Players[idx].Score = score
 	}
 	log.Debug().
 		Uint32("score", score).
@@ -305,26 +286,14 @@ func readScoreboardScoreY10S4(r *Reader, score uint32) error {
 		}
 
 		prevScore := r.lastPlayerScores[idx]
-		if prevScore > 0 && score > prevScore {
-			delta := score - prevScore
-			if delta == 15 {
-				r.recordScoreBasedDestruction(username, "camera", r.time)
-			} else if delta == 25 {
-				r.recordScoreBasedDestruction(username, "utility", r.time)
-			} else if delta == 10 {
-				role := r.getPlayerTeamRole(username)
-				if role == Defense {
-					r.recordScoreBasedDestruction(username, "drone", r.time)
-				}
-			} else if delta == 20 {
-				r.recordScoreBasedDestruction(username, "gadget_deploy", r.time)
-			} else if delta == 50 {
-				r.pendingRevives = append(r.pendingRevives, scoreReviveCandidate{
-					Username:      username,
-					Time:          r.timeRaw,
-					TimeInSeconds: r.time,
-				})
-			}
+		if prevScore > 0 && score == prevScore+50 {
+			r.pendingRevives = append(r.pendingRevives, scoreReviveCandidate{
+				Username:       username,
+				Time:           r.timeRaw,
+				TimeInSeconds:  r.time,
+				Phase:          r.clock.phase,
+				ElapsedSeconds: r.elapsed(),
+			})
 		}
 
 		r.lastPlayerScores[idx] = score

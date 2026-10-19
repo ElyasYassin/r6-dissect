@@ -283,62 +283,11 @@ func (m *MatchReader) WriteJSON(out io.Writer) error {
 	return encoder.Encode(m.Data())
 }
 
-func (m *MatchReader) WriteJSONWithAnalysis(out io.Writer) error {
-	type round struct {
-		Header
-		MatchFeedback      []MatchUpdate       `json:"matchFeedback"`
-		PlayerStats        []PlayerRoundStats  `json:"stats"`
-		UtilityEvents      []UtilityEvent      `json:"utilityEvents,omitempty"`
-		CameraDestructions []CameraDestruction `json:"cameraDestructions,omitempty"`
-		DroneDestructions  []DroneDestruction  `json:"droneDestructions,omitempty"`
-		Reinforcements     []Reinforcement     `json:"reinforcements,omitempty"`
-		Barricades         []BarricadePlace    `json:"barricades,omitempty"`
-		GadgetDeployments  []GadgetDeployment  `json:"gadgetDeployments,omitempty"`
-		Movements          []EntityPositions   `json:"movements,omitempty"`
-		LocationEvents     []LocationEvent     `json:"locationEvents,omitempty"`
-	}
-	type output struct {
-		Rounds      []round            `json:"rounds"`
-		PlayerStats []PlayerMatchStats `json:"stats"`
-		Analysis    *MatchAnalysis     `json:"analysis,omitempty"`
-	}
-	rounds := make([]round, 0)
-	for _, r := range m.rounds {
-		rounds = append(rounds, round{
-			Header:             r.Header,
-			MatchFeedback:      r.MatchFeedback,
-			PlayerStats:        r.PlayerStats(),
-			UtilityEvents:      r.UtilityEvents,
-			CameraDestructions: r.CameraDestructions,
-			DroneDestructions:  r.DroneDestructions,
-			Reinforcements:     r.Reinforcements,
-			Barricades:         r.Barricades,
-			GadgetDeployments:  r.GadgetDeployments,
-			Movements:          r.Movements,
-			LocationEvents:     r.LocationEvents,
-		})
-	}
-	encoder := json.NewEncoder(out)
-	return encoder.Encode(output{
-		Rounds:      rounds,
-		PlayerStats: m.PlayerStats(),
-		Analysis:    AnalyzeMatch(m),
-	})
-}
-
 func (m *MatchReader) Data() any {
 	type round struct {
 		Header
-		MatchFeedback      []MatchUpdate       `json:"matchFeedback"`
-		PlayerStats        []PlayerRoundStats  `json:"stats"`
-		UtilityEvents      []UtilityEvent      `json:"utilityEvents,omitempty"`
-		CameraDestructions []CameraDestruction `json:"cameraDestructions,omitempty"`
-		DroneDestructions  []DroneDestruction  `json:"droneDestructions,omitempty"`
-		Reinforcements     []Reinforcement     `json:"reinforcements,omitempty"`
-		Barricades         []BarricadePlace    `json:"barricades,omitempty"`
-		GadgetDeployments  []GadgetDeployment  `json:"gadgetDeployments,omitempty"`
-		Movements          []EntityPositions   `json:"movements,omitempty"`
-		LocationEvents     []LocationEvent     `json:"locationEvents,omitempty"`
+		MatchFeedback []MatchUpdate      `json:"matchFeedback"`
+		PlayerStats   []PlayerRoundStats `json:"stats"`
 	}
 	type output struct {
 		Rounds      []round            `json:"rounds"`
@@ -347,17 +296,9 @@ func (m *MatchReader) Data() any {
 	rounds := make([]round, 0)
 	for _, r := range m.rounds {
 		rounds = append(rounds, round{
-			Header:             r.Header,
-			MatchFeedback:      r.MatchFeedback,
-			PlayerStats:        r.PlayerStats(),
-			UtilityEvents:      r.UtilityEvents,
-			CameraDestructions: r.CameraDestructions,
-			DroneDestructions:  r.DroneDestructions,
-			Reinforcements:     r.Reinforcements,
-			Barricades:         r.Barricades,
-			GadgetDeployments:  r.GadgetDeployments,
-			Movements:          r.Movements,
-			LocationEvents:     r.LocationEvents,
+			Header:        r.Header,
+			MatchFeedback: r.MatchFeedback,
+			PlayerStats:   r.PlayerStats(),
 		})
 	}
 	return output{

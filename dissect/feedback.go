@@ -36,8 +36,11 @@ type MatchUpdate struct {
 	Headshot               *bool           `json:"headshot,omitempty"`
 	Time                   string          `json:"time"`
 	TimeInSeconds          float64         `json:"timeInSeconds"`
+	Phase                  RoundPhase      `json:"phase,omitempty"`
+	ElapsedSeconds         float64         `json:"elapsedSeconds"`
 	Message                string          `json:"message,omitempty"`
 	Operator               Operator        `json:"operator,omitempty"`
+	TeamKill               bool            `json:"teamKill,omitempty"`
 	DBNOBy                 string          `json:"dbnoBy,omitempty"`
 	FinishedBy             string          `json:"finishedBy,omitempty"`
 	BleedOut               bool            `json:"bleedOut,omitempty"`
@@ -58,7 +61,7 @@ func (r *Reader) isValidScoreboardCorrection(correctedKiller string, target stri
 
 func (r *Reader) detectRevivesFromScore() {
 	sort.SliceStable(r.pendingRevives, func(i, j int) bool {
-		return r.pendingRevives[i].TimeInSeconds > r.pendingRevives[j].TimeInSeconds
+		return r.pendingRevives[i].ElapsedSeconds < r.pendingRevives[j].ElapsedSeconds
 	})
 	for _, candidate := range r.pendingRevives {
 		r.recordReviveFromScore(candidate)
@@ -67,7 +70,7 @@ func (r *Reader) detectRevivesFromScore() {
 }
 
 func (r *Reader) recordReviveFromScore(candidate scoreReviveCandidate) {
-	targets := r.unresolvedDBNOTargetsForReviver(candidate.Username, candidate.TimeInSeconds)
+	targets := r.unresolvedDBNOTargetsForReviver(candidate.Username, candidate.ElapsedSeconds)
 	if len(targets) == 0 {
 		return
 	}
@@ -76,11 +79,13 @@ func (r *Reader) recordReviveFromScore(candidate scoreReviveCandidate) {
 		target = targets[0]
 	}
 	u := MatchUpdate{
-		Type:          Revive,
-		Username:      candidate.Username,
-		Target:        target,
-		Time:          candidate.Time,
-		TimeInSeconds: candidate.TimeInSeconds,
+		Type:           Revive,
+		Username:       candidate.Username,
+		Target:         target,
+		Time:           candidate.Time,
+		TimeInSeconds:  candidate.TimeInSeconds,
+		Phase:          candidate.Phase,
+		ElapsedSeconds: candidate.ElapsedSeconds,
 	}
 	r.insertMatchUpdateByTime(u)
 	log.Debug().
@@ -100,7 +105,7 @@ func (r *Reader) unresolvedDBNOTargetsForReviver(username string, reviveTime flo
 	targets := make([]string, 0)
 
 	for _, u := range r.MatchFeedback {
-		if u.Type != DBNO || u.Target == "" || u.TimeInSeconds < reviveTime {
+		if u.Type != DBNO || u.Target == "" || u.ElapsedSeconds > reviveTime {
 			continue
 		}
 		targetIdx := r.PlayerIndexByUsername(u.Target)
@@ -108,7 +113,7 @@ func (r *Reader) unresolvedDBNOTargetsForReviver(username string, reviveTime flo
 			r.Header.Players[targetIdx].TeamIndex != reviverTeam || u.Target == username {
 			continue
 		}
-		if r.dbnoResolvedBetween(u.Target, u.TimeInSeconds, reviveTime) {
+		if r.dbnoResolvedBetween(u.Target, u.ElapsedSeconds, reviveTime) {
 			continue
 		}
 		targets = append(targets, u.Target)
@@ -119,7 +124,7 @@ func (r *Reader) unresolvedDBNOTargetsForReviver(username string, reviveTime flo
 
 func (r *Reader) dbnoResolvedBetween(target string, dbnoTime float64, reviveTime float64) bool {
 	for _, u := range r.MatchFeedback {
-		if u.TimeInSeconds > dbnoTime || u.TimeInSeconds < reviveTime {
+		if u.ElapsedSeconds < dbnoTime || u.ElapsedSeconds > reviveTime {
 			continue
 		}
 		if u.Type == Kill && u.Target == target {
@@ -137,7 +142,7 @@ func (r *Reader) dbnoResolvedBetween(target string, dbnoTime float64, reviveTime
 
 func (r *Reader) insertMatchUpdateByTime(update MatchUpdate) {
 	for i, existing := range r.MatchFeedback {
-		if existing.TimeInSeconds < update.TimeInSeconds {
+		if existing.ElapsedSeconds > update.ElapsedSeconds {
 			r.MatchFeedback = append(r.MatchFeedback[:i], append([]MatchUpdate{update}, r.MatchFeedback[i:]...)...)
 			return
 		}
@@ -228,6 +233,7 @@ func readMatchFeedback(r *Reader) error {
 					Time:          r.timeRaw,
 					TimeInSeconds: r.time,
 				}
+				r.stamp(&u)
 				r.MatchFeedback = append(r.MatchFeedback, u)
 				log.Debug().Interface("match_update", u).Send()
 				log.Debug().Msg("kill username empty because of death")
@@ -241,6 +247,7 @@ func readMatchFeedback(r *Reader) error {
 			Time:          r.timeRaw,
 			TimeInSeconds: r.time,
 		}
+		r.stamp(&u)
 		if err = r.Skip(56); err != nil {
 			return err
 		}
@@ -296,8 +303,8 @@ func readMatchFeedback(r *Reader) error {
 					Str("killer", u.Username).
 					Str("target", u.Target).
 					Int("team", killerTeam).
-					Msg("kill filtered (same team)")
-				return nil
+					Msg("team kill")
+				u.TeamKill = true
 			}
 		}
 		if isFinishOff {
@@ -333,11 +340,13 @@ func readMatchFeedback(r *Reader) error {
 			}
 			if u.DBNOBy == "" {
 				dbnoEvent := MatchUpdate{
-					Type:          DBNO,
-					Username:      username,
-					Target:        u.Target,
-					Time:          u.Time,
-					TimeInSeconds: u.TimeInSeconds,
+					Type:           DBNO,
+					Username:       username,
+					Target:         u.Target,
+					Time:           u.Time,
+					TimeInSeconds:  u.TimeInSeconds,
+					Phase:          u.Phase,
+					ElapsedSeconds: u.ElapsedSeconds,
 				}
 				r.MatchFeedback = append(r.MatchFeedback, dbnoEvent)
 				u.DBNOBy = username
@@ -355,21 +364,19 @@ func readMatchFeedback(r *Reader) error {
 			log.Debug().Interface("match_update", u).Send()
 			return nil
 		}
-		inOvertime := false
 		defuserPlantTime := float64(-1)
 		for i := len(r.MatchFeedback) - 1; i >= 0; i-- {
 			val := r.MatchFeedback[i]
 			if val.Type == DefuserPlantComplete {
-				defuserPlantTime = val.TimeInSeconds
+				defuserPlantTime = val.ElapsedSeconds
 			}
-			if u.TimeInSeconds > val.TimeInSeconds+5 {
-				inOvertime = true
-			}
+			// the target died before the defuser was planted and "dies" again after it
+			inOvertime := u.Phase == PostPlantPhase && val.Phase != PostPlantPhase
 			if val.Type != Kill && val.Type != Death && val.Type != DBNO {
 				continue
 			}
 			if val.Target == u.Target || (val.Type == Death && val.Username == u.Target) {
-				timeDiff := val.TimeInSeconds - u.TimeInSeconds
+				timeDiff := u.ElapsedSeconds - val.ElapsedSeconds
 				if val.Type == Kill && val.DBNOBy == "" && timeDiff >= 0 && timeDiff <= 10 {
 					r.MatchFeedback[i].Type = DBNO
 					finisher := u.Username
@@ -387,15 +394,15 @@ func readMatchFeedback(r *Reader) error {
 					break
 				}
 				sameKiller := val.Username == u.Username
-				isPlantBoundaryKill := defuserPlantTime >= 0 && val.TimeInSeconds <= defuserPlantTime && val.TimeInSeconds >= defuserPlantTime-1
+				isPlantBoundaryKill := defuserPlantTime >= 0 && val.ElapsedSeconds >= defuserPlantTime && val.ElapsedSeconds <= defuserPlantTime+1
 				if inOvertime {
 					if !sameKiller {
 						log.Debug().
 							Str("killer", u.Username).
 							Str("target", u.Target).
 							Str("original_killer", val.Username).
-							Float64("existing_time", val.TimeInSeconds).
-							Float64("new_time", u.TimeInSeconds).
+							Float64("existing_time", val.ElapsedSeconds).
+							Float64("new_time", u.ElapsedSeconds).
 							Msg("overtime re-kill allowed (different killer)")
 						break
 					}
@@ -403,8 +410,8 @@ func readMatchFeedback(r *Reader) error {
 						log.Debug().
 							Str("killer", u.Username).
 							Str("target", u.Target).
-							Float64("existing_time", val.TimeInSeconds).
-							Float64("new_time", u.TimeInSeconds).
+							Float64("existing_time", val.ElapsedSeconds).
+							Float64("new_time", u.ElapsedSeconds).
 							Float64("defuser_plant_time", defuserPlantTime).
 							Msg("overtime re-kill allowed (same killer, not plant-boundary)")
 						break
@@ -413,8 +420,8 @@ func readMatchFeedback(r *Reader) error {
 				log.Debug().
 					Str("killer", u.Username).
 					Str("target", u.Target).
-					Float64("existing_time", val.TimeInSeconds).
-					Float64("new_time", u.TimeInSeconds).
+					Float64("existing_time", val.ElapsedSeconds).
+					Float64("new_time", u.ElapsedSeconds).
 					Bool("plant_boundary", isPlantBoundaryKill).
 					Msg("duplicate kill filtered (target already dead)")
 				return nil

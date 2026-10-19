@@ -13,11 +13,11 @@ func TestDetectRevivesFromScore(t *testing.T) {
 			},
 		},
 		MatchFeedback: []MatchUpdate{
-			{Type: DBNO, Username: "enemy", Target: "revived", Time: "1:09", TimeInSeconds: 69},
-			{Type: Kill, Username: "enemy", Target: "revived", Time: "0:00", TimeInSeconds: 0},
+			{Type: DBNO, Username: "enemy", Target: "revived", Time: "1:09", TimeInSeconds: 69, ElapsedSeconds: 110},
+			{Type: Kill, Username: "enemy", Target: "revived", Time: "0:00", TimeInSeconds: 0, ElapsedSeconds: 179},
 		},
 		pendingRevives: []scoreReviveCandidate{
-			{Username: "reviver", Time: "0:27", TimeInSeconds: 27},
+			{Username: "reviver", Time: "0:27", TimeInSeconds: 27, ElapsedSeconds: 152},
 		},
 	}
 
@@ -35,9 +35,9 @@ func TestDetectRevivesFromScore(t *testing.T) {
 func TestReviveClearsPendingDBNOForBleedoutDetection(t *testing.T) {
 	r := &Reader{
 		MatchFeedback: []MatchUpdate{
-			{Type: DBNO, Username: "enemy", Target: "revived", Time: "1:09", TimeInSeconds: 69},
-			{Type: Revive, Username: "reviver", Target: "revived", Time: "0:27", TimeInSeconds: 27},
-			{Type: Death, Username: "revived", Time: "0:00", TimeInSeconds: 0},
+			{Type: DBNO, Username: "enemy", Target: "revived", Time: "1:09", TimeInSeconds: 69, ElapsedSeconds: 110},
+			{Type: Revive, Username: "reviver", Target: "revived", Time: "0:27", TimeInSeconds: 27, ElapsedSeconds: 152},
+			{Type: Death, Username: "revived", Time: "0:00", TimeInSeconds: 0, ElapsedSeconds: 179},
 		},
 	}
 

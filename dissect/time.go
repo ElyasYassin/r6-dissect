@@ -8,12 +8,72 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// RoundPhase identifies which countdown the in-game timer is showing.
+type RoundPhase string
+
+const (
+	PrepPhase      RoundPhase = "Prep"
+	ActionPhase    RoundPhase = "Action"
+	PostPlantPhase RoundPhase = "PostPlant"
+)
+
+// the timer restarts its countdown at every phase change (prep -> action -> defuser planted),
+// so the raw timer value alone is ambiguous. We track the phase and a monotonic clock instead.
+type roundClock struct {
+	phase        RoundPhase
+	phaseStart   float64 // timer value when the current phase started
+	phaseElapsed float64 // elapsed seconds when the current phase started
+	started      bool
+}
+
+// prepPhaseMax is the longest timer value we consider to be a preparation phase countdown.
+const prepPhaseMax = 60
+
+func (r *Reader) updateClock(t float64) {
+	c := &r.clock
+	// a new countdown starts with the first timer value or whenever the timer jumps up
+	if !c.started || t > r.time+1 {
+		switch {
+		case c.phase == ActionPhase || c.phase == PostPlantPhase:
+			// the only countdown after the action phase is the defuser timer
+			c.phaseElapsed = r.elapsed()
+			c.phase = PostPlantPhase
+		case t <= prepPhaseMax:
+			c.phase = PrepPhase
+		default:
+			c.phase = ActionPhase
+			c.phaseElapsed = 0
+		}
+		c.phaseStart = t
+		c.started = true
+	}
+	r.time = t
+}
+
+// elapsed returns the seconds since the start of the action phase.
+// The value is negative during the preparation phase.
+func (r *Reader) elapsed() float64 {
+	if r.clock.phase == PrepPhase {
+		return -r.time
+	}
+	return r.clock.phaseElapsed + r.clock.phaseStart - r.time
+}
+
+// stamp sets the round phase and monotonic time of u to the current clock.
+func (r *Reader) stamp(u *MatchUpdate) {
+	if !r.clock.started {
+		return
+	}
+	u.Phase = r.clock.phase
+	u.ElapsedSeconds = r.elapsed()
+}
+
 func readTime(r *Reader) error {
 	time, err := r.Uint32()
 	if err != nil {
 		return err
 	}
-	r.time = float64(time)
+	r.updateClock(float64(time))
 	r.timeRaw = fmt.Sprintf("%d:%02d", time/60, time%60)
 	return nil
 }
@@ -26,7 +86,7 @@ func readY7Time(r *Reader) error {
 		if err != nil {
 			return err
 		}
-		r.time = seconds
+		r.updateClock(seconds)
 		r.timeRaw = parts[0]
 		return nil
 	}
@@ -38,7 +98,7 @@ func readY7Time(r *Reader) error {
 	if err != nil {
 		return err
 	}
-	r.time = float64((minutes * 60) + seconds)
+	r.updateClock(float64((minutes * 60) + seconds))
 	r.timeRaw = time
 	return nil
 }
@@ -71,8 +131,9 @@ func (r *Reader) roundEnd() {
 		u := &r.MatchFeedback[i]
 		switch u.Type {
 		case Kill:
-			ti := r.Header.Players[r.PlayerIndexByUsername(u.Target)].TeamIndex
-			deaths[ti] = deaths[ti] + 1
+			if ti := r.PlayerIndexByUsername(u.Target); ti >= 0 {
+				deaths[r.Header.Players[ti].TeamIndex]++
+			}
 			// fix killer username
 			if len(u.usernameFromScoreboard) > 0 {
 				log.Debug().
@@ -84,9 +145,9 @@ func (r *Reader) roundEnd() {
 			}
 			break
 		case Death:
-			ti := r.Header.Players[r.PlayerIndexByUsername(u.Username)].TeamIndex
-			deaths[ti] = deaths[ti] + 1
-			break
+			if ti := r.PlayerIndexByUsername(u.Username); ti >= 0 {
+				deaths[r.Header.Players[ti].TeamIndex]++
+			}
 		case DefuserPlantComplete:
 			planter = r.PlayerIndexByUsername(u.Username)
 			break
@@ -98,6 +159,10 @@ func (r *Reader) roundEnd() {
 				winningTeam := 0
 				if r.Header.Teams[1].Won {
 					winningTeam = 1
+				}
+				if roles[winningTeam] != Defense {
+					log.Debug().Msg("warn: defuser disabled but attack won the round")
+					continue
 				}
 				r.Header.Teams[winningTeam].WinCondition = DisabledDefuser
 			} else {
@@ -114,15 +179,16 @@ func (r *Reader) roundEnd() {
 		}
 	}
 
-	if r.Header.CodeVersion >= Y9S4 && planter > -1 {
-		defenseTeamIndex := -1
-		for i, team := range r.Header.Teams {
-			if team.Role == Defense {
-				defenseTeamIndex = i
-				break
-			}
+	// since Y9S4, the header tells us who won. Only the win condition needs to be determined.
+	if r.Header.CodeVersion >= Y9S4 {
+		winner := 0
+		if r.Header.Teams[1].Won {
+			winner = 1
 		}
-		if defenseTeamIndex >= 0 && r.Header.Teams[defenseTeamIndex].Won {
+		loser := winner ^ 1
+		switch {
+		case planter > -1 && roles[winner] == Defense:
+			// once the defuser is planted, defense can only win by disabling it
 			username := ""
 			if disabler >= 0 && disabler < len(r.Header.Players) {
 				username = r.Header.Players[disabler].Username
@@ -135,39 +201,20 @@ func (r *Reader) roundEnd() {
 			}
 			r.MatchFeedback = append(r.MatchFeedback, u)
 			log.Debug().Interface("match_update", u).Msg("inferred DefuserDisableComplete")
-			r.Header.Teams[defenseTeamIndex].WinCondition = DisabledDefuser
-			return
+			r.Header.Teams[winner].WinCondition = DisabledDefuser
+		case planter > -1:
+			r.Header.Teams[winner].WinCondition = DefusedBomb
+		case sizes[loser] > 0 && deaths[loser] >= sizes[loser]:
+			r.Header.Teams[winner].WinCondition = KilledOpponents
+		case roles[winner] == Defense && r.Header.GameMode != Hostage:
+			r.Header.Teams[winner].WinCondition = Time
 		}
+		return
 	}
 
 	if planter > -1 {
 		r.Header.Teams[r.Header.Players[planter].TeamIndex].Won = true
 		r.Header.Teams[r.Header.Players[planter].TeamIndex].WinCondition = DefusedBomb
-		return
-	}
-
-	if r.Header.CodeVersion >= Y10S4 {
-		if deaths[0] == sizes[0] && sizes[0] > 0 {
-			r.Header.Teams[1].Won = true
-			r.Header.Teams[1].WinCondition = KilledOpponents
-			return
-		}
-		if deaths[1] == sizes[1] && sizes[1] > 0 {
-			r.Header.Teams[0].Won = true
-			r.Header.Teams[0].WinCondition = KilledOpponents
-			return
-		}
-		for i := range r.Header.Teams {
-			if r.Header.Teams[i].Won && r.Header.Teams[i].WinCondition == "" {
-				if r.Header.Teams[i].Role == Defense {
-					r.Header.Teams[i].WinCondition = Time
-				}
-			}
-		}
-		return
-	}
-
-	if r.Header.CodeVersion >= Y9S4 {
 		return
 	}
 

@@ -1,9 +1,10 @@
 package dissect
 
+// ClutchDetail describes the situation of the last player alive on the winning team.
 type ClutchDetail struct {
-	OpponentsAlive int     `json:"opponentsAlive"`
-	TimeStarted    float64 `json:"timeStarted"`
-	Won            bool    `json:"won"`
+	OpponentsAlive int `json:"opponentsAlive"` // opponents alive when the clutch started
+	// ElapsedSeconds is when the clutch started, in seconds since the start of the action phase.
+	ElapsedSeconds float64 `json:"elapsedSeconds"`
 	Kills          int     `json:"kills"`
 }
 
@@ -62,7 +63,7 @@ func (r *Reader) Trades() [][]MatchUpdate {
 	var previous = MatchUpdate{}
 	for _, a := range r.MatchFeedback {
 		var samePlayers = (previous.Target == a.Username || previous.Username == a.Target)
-		var withinThreshold = (previous.TimeInSeconds - a.TimeInSeconds) <= 3
+		var withinThreshold = (a.ElapsedSeconds - previous.ElapsedSeconds) <= 3
 		if a.Type == Kill && samePlayers && withinThreshold {
 			trades = append(trades, []MatchUpdate{previous, a})
 		}
@@ -99,7 +100,11 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 		winningTeamIndex = 1
 	}
 	for i, p := range r.Header.Players {
-		scorePlayer := r.Scoreboard.Players[i]
+		// the scoreboard is only populated once all players were read
+		var scorePlayer ScoreboardPlayer
+		if i < len(r.Scoreboard.Players) {
+			scorePlayer = r.Scoreboard.Players[i]
+		}
 		stats = append(stats, PlayerRoundStats{
 			Username:  p.Username,
 			TeamIndex: p.TeamIndex,
@@ -109,24 +114,42 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 		})
 		index[p.Username] = i
 	}
+	// teamIndexOf returns the team of username, or -1 if the player is unknown.
+	teamIndexOf := func(username string) int {
+		if i, ok := index[username]; ok {
+			return stats[i].TeamIndex
+		}
+		return -1
+	}
 	lastDeath := -1
 	for _, a := range r.MatchFeedback {
-		i := index[a.Username]
-		if a.Type == Kill {
-			stats[i].Kills += 1
-			if a.Headshot != nil && *a.Headshot {
-				stats[i].Headshots += 1
+		i, known := index[a.Username]
+		switch a.Type {
+		case Kill:
+			if known && !a.TeamKill {
+				stats[i].Kills += 1
+				if a.Headshot != nil && *a.Headshot {
+					stats[i].Headshots += 1
+				}
+				stats[i].HeadshotPercentage = headshotPercentage(stats[i].Headshots, stats[i].Kills)
 			}
-			stats[i].HeadshotPercentage = headshotPercentage(stats[i].Headshots, stats[i].Kills)
-			stats[index[a.Target]].Died = true
-			lastDeath = index[a.Target]
-		} else if a.Type == DBNO {
-			stats[i].DBNOs += 1
-		} else if a.Type == Revive {
-			stats[i].Revives += 1
-		} else if a.Type == Death {
-			stats[i].Died = true
-			lastDeath = i
+			if t, ok := index[a.Target]; ok {
+				stats[t].Died = true
+				lastDeath = t
+			}
+		case DBNO:
+			if known {
+				stats[i].DBNOs += 1
+			}
+		case Revive:
+			if known {
+				stats[i].Revives += 1
+			}
+		case Death:
+			if known {
+				stats[i].Died = true
+				lastDeath = i
+			}
 		}
 	}
 	// Calculates 1vX
@@ -153,24 +176,39 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 	if lastWinnerStanding > -1 {
 		username := stats[lastWinnerStanding].Username
 		teamLeft := r.NumPlayers(winningTeamIndex)
+		opponentsAlive := r.NumPlayers(1 - winningTeamIndex)
 		oneVx := 0
-		clutchStartTime := float64(0)
+		var clutch *ClutchDetail
 		for _, a := range r.MatchFeedback {
-			if a.Type == Kill && stats[index[a.Target]].TeamIndex == winningTeamIndex {
-				teamLeft--
-			} else if a.Type == Death && stats[index[a.Username]].TeamIndex == winningTeamIndex {
-				teamLeft--
-			} else if a.Type == PlayerLeave && stats[index[a.Username]].TeamIndex == winningTeamIndex {
-				teamLeft--
+			var victim string
+			switch a.Type {
+			case Kill:
+				victim = a.Target
+			case Death, PlayerLeave:
+				victim = a.Username
 			}
-			if teamLeft == 1 && clutchStartTime == 0 {
-				clutchStartTime = a.TimeInSeconds
+			if victim != "" {
+				if teamIndexOf(victim) == winningTeamIndex {
+					teamLeft--
+				} else if teamIndexOf(victim) >= 0 {
+					opponentsAlive--
+				}
+			}
+			if teamLeft == 1 && clutch == nil {
+				// opponents killed by this event were killed during the clutch
+				clutch = &ClutchDetail{OpponentsAlive: opponentsAlive, ElapsedSeconds: a.ElapsedSeconds}
+				if victim != "" && teamIndexOf(victim) != winningTeamIndex && teamIndexOf(victim) >= 0 {
+					clutch.OpponentsAlive++
+				}
 			}
 			if a.Username != username {
 				continue
 			}
-			if a.Type == Kill && teamLeft < 2 {
+			if a.Type == Kill && !a.TeamKill && teamLeft < 2 {
 				oneVx++
+				if clutch != nil {
+					clutch.Kills++
+				}
 			}
 		}
 		for _, s := range stats {
@@ -179,27 +217,8 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 			}
 		}
 		stats[lastWinnerStanding].OneVx = oneVx
-		if oneVx > 0 {
-			losingTeamIndex := 1 - winningTeamIndex
-			opponentsAlive := r.NumPlayers(losingTeamIndex)
-			for _, a := range r.MatchFeedback {
-				// Time counts down in R6 replays (higher = earlier in round).
-				// Stop once we reach events at or after clutch start time.
-				if a.TimeInSeconds <= clutchStartTime {
-					break
-				}
-				if a.Type == Kill && stats[index[a.Target]].TeamIndex == losingTeamIndex {
-					opponentsAlive--
-				} else if a.Type == Death && stats[index[a.Username]].TeamIndex == losingTeamIndex {
-					opponentsAlive--
-				}
-			}
-			stats[lastWinnerStanding].ClutchDetail = &ClutchDetail{
-				OpponentsAlive: opponentsAlive,
-				TimeStarted:    clutchStartTime,
-				Won:            true,
-				Kills:          oneVx,
-			}
+		if oneVx > 0 && clutch != nil {
+			stats[lastWinnerStanding].ClutchDetail = clutch
 		}
 	}
 	return stats
