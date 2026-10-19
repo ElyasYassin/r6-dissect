@@ -29,7 +29,9 @@ type Reader struct {
 	planted                  bool
 	defuserDisabling         bool
 	lastDefuserTimer         float64
-	readPartial              bool // reads up to the player info packets
+	defuserPawnToSlot        map[[4]byte][4]byte // Y10S4+: maps a pawn entity ID to its player slot entity ID
+	defuserRun               defuserRun          // Y10S4+: the plant/disable action the defuser timer currently belongs to
+	readPartial              bool                // reads up to the player info packets
 	playersRead              int
 	lastKillerFromScoreboard string
 	pendingSBIDs             [][4]byte          // Y10S4+: sbIDs in header-entry order for deferred mapping
@@ -63,6 +65,7 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 		scoreboardInitialKills: make(map[[4]byte]uint32),
 		scoreboardFinalKills:   make(map[int]uint32),
 		lastPlayerScores:       make(map[int]uint32),
+		defuserPawnToSlot:      make(map[[4]byte][4]byte),
 	}
 	if chunkedCompression {
 		if err = r.readChunkedData(br); err != nil {
@@ -85,6 +88,9 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 	}
 	r.Listen([]byte{0x59, 0x34, 0xE5, 0x8B, 0x04}, readMatchFeedback)
 	r.Listen([]byte{0x22, 0xA9, 0xC8, 0x58, 0xD9}, readDefuserTimer)
+	if r.Header.CodeVersion >= Y10S4 {
+		r.Listen(defuserPawnIndicator, readDefuserPawn)
+	}
 	r.Listen([]byte{0xEC, 0xDA, 0x4F, 0x80}, readScoreboardScore)
 	r.Listen([]byte{0x4D, 0x73, 0x7F, 0x9E}, readScoreboardAssists)
 	r.Listen([]byte{0x1C, 0xD2, 0xB1, 0x9D}, readScoreboardKills)
@@ -247,6 +253,8 @@ func (r *Reader) Read() (err error) {
 	}
 	if !r.readPartial {
 		n := len(r.MatchFeedback)
+		// a plant/disable still in progress when the round ends did not complete
+		r.stopDefuserRun()
 		r.roundEnd()
 		r.stampNew(n)
 		r.detectRevivesFromScore()

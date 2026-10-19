@@ -69,6 +69,10 @@ func readPlayer(r *Reader) error {
 	if err != nil {
 		return err
 	}
+	var slotID []byte
+	if r.Header.CodeVersion >= Y10S4 {
+		slotID = r.peekPlayerSlotID()
+	}
 	if err := r.Seek(spawnIndicator); err != nil {
 		return err
 	}
@@ -136,6 +140,7 @@ func readPlayer(r *Reader) error {
 		Spawn:     spawn,
 		DissectID: id,
 		uiID:      uiID,
+		slotID:    slotID,
 	}
 	if p.Operator != Recruit && p.Operator.Role() == Defense {
 		p.Spawn = r.Header.Site // We cannot detect the spawn here on defense
@@ -147,6 +152,7 @@ func readPlayer(r *Reader) error {
 		Hex("DissectID", id).
 		Uint64("ID", p.ID).
 		Uint64("uiID", p.uiID).
+		Hex("slotID", p.slotID).
 		Str("spawn", spawn).Send()
 	found := false
 	foundIndex := -1
@@ -161,6 +167,9 @@ func readPlayer(r *Reader) error {
 			r.Header.Players[i].Spawn = p.Spawn
 			r.Header.Players[i].DissectID = p.DissectID
 			r.Header.Players[i].uiID = p.uiID
+			if p.slotID != nil {
+				r.Header.Players[i].slotID = p.slotID
+			}
 			found = true
 			foundIndex = i
 			break
