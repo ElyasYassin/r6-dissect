@@ -122,6 +122,7 @@ const (
 	LairY10            Map = 417890697769
 	NighthavenLabsY10  Map = 418119057546
 	ConsulateY10       Map = 418126004176
+	FortressY10        Map = 398899676157
 
 	KilledOpponents  WinCondition = "KilledOpponents"
 	SecuredArea      WinCondition = "SecuredArea" // TODO
@@ -214,7 +215,6 @@ const (
 )
 
 // duplicated code here could be avoided by defining a generic function accepting any Number type.
-// that kind of constraint is still experimental though (as of Go 1.20.2): https://pkg.go.dev/golang.org/x/exp/constraints
 
 func (i MatchType) MarshalJSON() (text []byte, err error) {
 	return json.Marshal(stringerIntMarshal{
@@ -367,14 +367,14 @@ func (r *Reader) readHeader() (Header, error) {
 			playerData = false
 		}
 		if !playerData {
-			if k != "gmsetting" {
-				props[k] = v
-			} else {
+			if k == "gmsetting" {
 				n, err := strconv.Atoi(v)
 				if err != nil {
 					return Header{}, err
 				}
 				gmSettings = append(gmSettings, n)
+			} else {
+				props[k] = v
 			}
 		} else {
 			switch k {

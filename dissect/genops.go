@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"go/format"
 	"go/types"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -71,7 +70,7 @@ func main() {
 	// Write to file.
 	baseName := fmt.Sprintf("%s_roles.go", *typeName)
 	outFile := filepath.Join(cwd, strings.ToLower(baseName))
-	if err = ioutil.WriteFile(outFile, src, 0644); err != nil {
+	if err = os.WriteFile(outFile, src, 0644); err != nil {
 		log.Fatalf("writing output: %s", err)
 	}
 }
