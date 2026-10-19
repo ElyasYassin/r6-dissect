@@ -81,6 +81,12 @@ r6-dissect Match-2026-03-26_21-19-17-21932-R01.rec
 
 See example outputs in [/examples](https://github.com/redraskal/r6-dissect/tree/main/examples).
 
+### Player fields
+| Field | Description |
+|---|---|
+| `spawn` | The attacker spawn location. For defenders, this is the defended site. |
+| `startingRoom` | The room a defender was in when the round started (Y9S1+). |
+
 ### Match feedback fields
 | Field | Description |
 |---|---|
