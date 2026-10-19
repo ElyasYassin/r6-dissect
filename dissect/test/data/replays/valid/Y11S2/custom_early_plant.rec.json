@@ -317,13 +317,12 @@
 				"name": "DBNO",
 				"id": 11
 			},
-			"username": "hattttttttt",
-			"target": "HokiesHi",
-			"headshot": true,
-			"time": "2:47",
-			"timeInSeconds": 167,
+			"username": "O.ni.",
+			"target": "NickB2A",
+			"time": "2:43",
+			"timeInSeconds": 163,
 			"phase": "Action",
-			"elapsedSeconds": 12
+			"elapsedSeconds": 16
 		},
 		{
 			"type": {
@@ -336,7 +335,8 @@
 			"time": "2:42",
 			"timeInSeconds": 162,
 			"phase": "Action",
-			"elapsedSeconds": 17
+			"elapsedSeconds": 17,
+			"dbnoBy": "O.ni."
 		},
 		{
 			"type": {
@@ -349,20 +349,7 @@
 			"time": "2:42",
 			"timeInSeconds": 162,
 			"phase": "Action",
-			"elapsedSeconds": 17,
-			"dbnoBy": "hattttttttt"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
-			"username": "Ark6444.HKM",
-			"target": "flux_",
-			"time": "2:28",
-			"timeInSeconds": 148,
-			"phase": "Action",
-			"elapsedSeconds": 31
+			"elapsedSeconds": 17
 		},
 		{
 			"type": {
@@ -375,34 +362,7 @@
 			"time": "2:28",
 			"timeInSeconds": 148,
 			"phase": "Action",
-			"elapsedSeconds": 31,
-			"dbnoBy": "Ark6444.HKM"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
-			"username": "RYCEEEEEEEEEEEE",
-			"target": "Ark6444.HKM",
-			"headshot": true,
-			"time": "2:19",
-			"timeInSeconds": 139,
-			"phase": "Action",
-			"elapsedSeconds": 40
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
-			"username": "MyzCNCBunny",
-			"target": "O.ni.",
-			"headshot": true,
-			"time": "2:18",
-			"timeInSeconds": 138,
-			"phase": "Action",
-			"elapsedSeconds": 41
+			"elapsedSeconds": 31
 		},
 		{
 			"type": {
@@ -411,20 +371,6 @@
 			},
 			"username": "RYCEEEEEEEEEEEE",
 			"target": "Ark6444.HKM",
-			"headshot": true,
-			"time": "2:18",
-			"timeInSeconds": 138,
-			"phase": "Action",
-			"elapsedSeconds": 41,
-			"dbnoBy": "RYCEEEEEEEEEEEE"
-		},
-		{
-			"type": {
-				"name": "DBNO",
-				"id": 11
-			},
-			"username": "hattttttttt",
-			"target": "KoolAidAF1",
 			"headshot": true,
 			"time": "2:18",
 			"timeInSeconds": 138,
@@ -442,8 +388,19 @@
 			"time": "2:18",
 			"timeInSeconds": 138,
 			"phase": "Action",
-			"elapsedSeconds": 41,
-			"dbnoBy": "MyzCNCBunny"
+			"elapsedSeconds": 41
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "MyzCNCBunny",
+			"target": "hattttttttt",
+			"time": "2:14",
+			"timeInSeconds": 134,
+			"phase": "Action",
+			"elapsedSeconds": 45
 		},
 		{
 			"type": {
@@ -456,7 +413,8 @@
 			"time": "2:14",
 			"timeInSeconds": 134,
 			"phase": "Action",
-			"elapsedSeconds": 45
+			"elapsedSeconds": 45,
+			"dbnoBy": "MyzCNCBunny"
 		},
 		{
 			"type": {
@@ -469,8 +427,7 @@
 			"time": "2:14",
 			"timeInSeconds": 134,
 			"phase": "Action",
-			"elapsedSeconds": 45,
-			"dbnoBy": "hattttttttt"
+			"elapsedSeconds": 45
 		},
 		{
 			"type": {

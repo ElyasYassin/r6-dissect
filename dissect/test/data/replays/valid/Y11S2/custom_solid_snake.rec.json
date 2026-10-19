@@ -384,13 +384,12 @@
 				"name": "DBNO",
 				"id": 11
 			},
-			"username": "flux_",
-			"target": "KoolAidAF1",
-			"headshot": false,
-			"time": "1:44",
-			"timeInSeconds": 104,
+			"username": "HokiesHi",
+			"target": "RYCEEEEEEEEEEEE",
+			"time": "1:50",
+			"timeInSeconds": 110,
 			"phase": "Action",
-			"elapsedSeconds": 75
+			"elapsedSeconds": 69
 		},
 		{
 			"type": {
@@ -403,7 +402,8 @@
 			"time": "1:39",
 			"timeInSeconds": 99,
 			"phase": "Action",
-			"elapsedSeconds": 80
+			"elapsedSeconds": 80,
+			"dbnoBy": "HokiesHi"
 		},
 		{
 			"type": {
@@ -416,8 +416,7 @@
 			"time": "1:39",
 			"timeInSeconds": 99,
 			"phase": "Action",
-			"elapsedSeconds": 80,
-			"dbnoBy": "flux_"
+			"elapsedSeconds": 80
 		},
 		{
 			"type": {

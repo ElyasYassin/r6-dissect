@@ -47,6 +47,8 @@ type MatchUpdate struct {
 	FinishedBy             string          `json:"finishedBy,omitempty"`
 	BleedOut               bool            `json:"bleedOut,omitempty"`
 	usernameFromScoreboard string
+	fromHealth             bool // Y10S4+: DBNO read from the player health state
+	revived                bool // Y10S4+: the DBNO read from the health state was revived
 }
 
 func (r *Reader) isValidScoreboardCorrection(correctedKiller string, target string) bool {

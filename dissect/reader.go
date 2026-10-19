@@ -44,8 +44,13 @@ type Reader struct {
 	lastPlayerScores         map[int]uint32     // Y10S4+: last known score per player index (for detecting +100 plant/disable bonus)
 	inventory                *inventoryState    // Y8S1+: player inventories for loadouts
 	pendingRevives           []scoreReviveCandidate
-	Header                   Header        `json:"header"`
-	MatchFeedback            []MatchUpdate `json:"matchFeedback"`
+	healthToSlot             map[[4]byte][4]byte // Y10S4+: maps a health component entity ID to its player slot entity ID
+	healthState              map[int]uint32      // Y10S4+: last health state per player index
+	healthSeen               bool                // Y10S4+: player health states were read, downs come from them
+	healthDowns              []healthDown        // Y10S4+: downs read from the health state, merged after reading
+	healthTransitions        []healthTransition  // Y10S4+: health state changes of all players
+	Header                   Header              `json:"header"`
+	MatchFeedback            []MatchUpdate       `json:"matchFeedback"`
 	Scoreboard               Scoreboard
 }
 
@@ -67,6 +72,8 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 		scoreboardFinalKills:   make(map[int]uint32),
 		lastPlayerScores:       make(map[int]uint32),
 		defuserPawnToSlot:      make(map[[4]byte][4]byte),
+		healthToSlot:           make(map[[4]byte][4]byte),
+		healthState:            make(map[int]uint32),
 	}
 	if chunkedCompression {
 		if err = r.readChunkedData(br); err != nil {
@@ -91,6 +98,8 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 	r.Listen([]byte{0x22, 0xA9, 0xC8, 0x58, 0xD9}, readDefuserTimer)
 	if r.Header.CodeVersion >= Y10S4 {
 		r.Listen(defuserPawnIndicator, readDefuserPawn)
+		r.Listen(healthLinkIndicator, readHealthLink)
+		r.Listen(healthStateIndicator, readHealthState)
 	}
 	r.Listen([]byte{0xEC, 0xDA, 0x4F, 0x80}, readScoreboardScore)
 	r.Listen([]byte{0x4D, 0x73, 0x7F, 0x9E}, readScoreboardAssists)
@@ -289,6 +298,7 @@ func (r *Reader) Read() (err error) {
 		r.stopDefuserRun()
 		r.roundEnd()
 		r.stampNew(n)
+		r.applyHealthDBNO()
 		r.detectRevivesFromScore()
 		r.detectBleedouts()
 		r.applyLoadouts()
