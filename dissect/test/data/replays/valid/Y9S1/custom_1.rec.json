@@ -53,7 +53,8 @@
 				"roleImage": 32822532301,
 				"roleName": "FROST",
 				"rolePortrait": 27880782933,
-				"spawn": "1F Kitchen, 1F Dining Room"
+				"spawn": "1F Kitchen, 1F Dining Room",
+				"startingRoom": "1F Dining Room"
 			},
 			{
 				"id": 6723954847491341113,
@@ -69,7 +70,8 @@
 				"roleImage": 1494825824,
 				"roleName": "CASTLE",
 				"rolePortrait": 27880706756,
-				"spawn": "1F Kitchen, 1F Dining Room"
+				"spawn": "1F Kitchen, 1F Dining Room",
+				"startingRoom": "1F Dining Room"
 			},
 			{
 				"id": 13898686610997036983,
@@ -85,7 +87,8 @@
 				"roleImage": 104189664639,
 				"roleName": "ARUNI",
 				"rolePortrait": 104189664665,
-				"spawn": "1F Kitchen, 1F Dining Room"
+				"spawn": "1F Kitchen, 1F Dining Room",
+				"startingRoom": "1F Dining Room"
 			},
 			{
 				"id": 4288684853475442243,
@@ -101,7 +104,8 @@
 				"roleImage": 121604587892,
 				"roleName": "ALIBI",
 				"rolePortrait": 104189662084,
-				"spawn": "1F Kitchen, 1F Dining Room"
+				"spawn": "1F Kitchen, 1F Dining Room",
+				"startingRoom": "1F Kitchen"
 			},
 			{
 				"id": 7276187288578330811,
@@ -117,7 +121,8 @@
 				"roleImage": 32822532305,
 				"roleName": "VALKYRIE",
 				"rolePortrait": 27880747293,
-				"spawn": "1F Kitchen, 1F Dining Room"
+				"spawn": "1F Kitchen, 1F Dining Room",
+				"startingRoom": "1F Kitchen"
 			},
 			{
 				"id": 6366317606386794496,

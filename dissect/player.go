@@ -108,6 +108,7 @@ func readPlayer(r *Reader) error {
 	}
 	// Older versions of siege did not include profile ids
 	profileID := ""
+	startingRoom := ""
 	var unknownId uint64
 	if len(r.Header.RecordingProfileID) > 0 {
 		if err = r.Seek(profileIDIndicator); err != nil {
@@ -117,6 +118,7 @@ func readPlayer(r *Reader) error {
 		if err != nil {
 			return err
 		}
+		startingRoom = r.readStartingRoom(r.offset)
 		if err = r.Skip(5); err != nil { // 22eed445c8
 			return err
 		}
@@ -136,6 +138,8 @@ func readPlayer(r *Reader) error {
 		Spawn:     spawn,
 		DissectID: id,
 		uiID:      uiID,
+
+		StartingRoom: startingRoom,
 	}
 	if p.Operator != Recruit && p.Operator.Role() == Defense {
 		p.Spawn = r.Header.Site // We cannot detect the spawn here on defense
@@ -147,7 +151,8 @@ func readPlayer(r *Reader) error {
 		Hex("DissectID", id).
 		Uint64("ID", p.ID).
 		Uint64("uiID", p.uiID).
-		Str("spawn", spawn).Send()
+		Str("spawn", spawn).
+		Str("startingRoom", startingRoom).Send()
 	found := false
 	foundIndex := -1
 	for i, existing := range r.Header.Players {
@@ -161,6 +166,9 @@ func readPlayer(r *Reader) error {
 			r.Header.Players[i].Spawn = p.Spawn
 			r.Header.Players[i].DissectID = p.DissectID
 			r.Header.Players[i].uiID = p.uiID
+			if r.Header.Players[i].StartingRoom == "" {
+				r.Header.Players[i].StartingRoom = p.StartingRoom
+			}
 			found = true
 			foundIndex = i
 			break
