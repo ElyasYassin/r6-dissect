@@ -13,7 +13,7 @@ jobs:
         goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - shell: bash
         name: Set env variables
         run: |
@@ -24,7 +24,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "1.23.3"
+          goversion: "1.26"
           pre_command: "go build -o libr6dissect.${{ env.ext }} -buildmode=c-shared exports/exports.go"
           extra_files: "LICENSE README.md libr6dissect.h libr6dissect.${{ env.ext }}"
           ldflags: "-X 'main.Version=${{ env.version }}'"
