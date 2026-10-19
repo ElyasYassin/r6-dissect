@@ -4,17 +4,15 @@
 
 Match Replay API/CLI for Rainbow Six: Siege's Dissect (.rec) format.
 
-Supports replays from **Y7S1 through Y11S1** (and counting).
+Supports replays from **Y7S1 through Y11S2** (and counting).
 
 Download the latest version here: https://github.com/redraskal/r6-dissect/releases
 
 ## Features
 - **Match Info** — Game version, map, gamemode, match type, teams, players, operators
-- **Match Feedback** — Kills, headshots, DBNOs, objective locates, defuser plants/disables, BattlEye bans, DCs
+- **Match Feedback** — Kills, headshots, DBNOs (downs), revives, objective locates, defuser plants/disables, BattlEye bans, DCs
+- **Round Timeline** — Every event has a round phase and a monotonic time since the action phase started
 - **Scoreboard** — Per-player kills, assists, deaths, and scores with kill/death reconciliation
-- **Player Movement** — XYZ position tracking for all 10 players, mapped by entity ID with team assignment
-- **Player Rotation** — Yaw and pitch aim angles via quaternion extraction (auto-calibrated per entity)
-- **Tactical Events** — Camera destructions, drone destructions, reinforcements, barricades, gadget deployments
 - **Output Formats** — JSON or Excel (.xlsx)
 
 ### See roadmap at https://github.com/users/redraskal/projects/1.
@@ -52,16 +50,15 @@ Example output (abbreviated):
     }
   ],
   "matchFeedback": [
-    { "type": "Kill", "username": "ReithYT", "target": "Ambatakum.", "headshot": false, "time": "1:51", "timeInSeconds": 111 }
-  ],
-  "movements": [
     {
-      "entityId": 160,
-      "username": "IanFiftyForty",
-      "team": "Attack",
-      "positions": [
-        { "x": -12.87, "y": -63.22, "z": 0.264, "yaw": -180, "pitch": 5.3 }
-      ]
+      "type": { "name": "Kill", "id": 0 },
+      "username": "ReithYT",
+      "target": "Ambatakum.",
+      "headshot": false,
+      "time": "1:51",
+      "timeInSeconds": 111,
+      "phase": "Action",
+      "elapsedSeconds": 68
     }
   ]
 }
@@ -83,6 +80,18 @@ r6-dissect Match-2026-03-26_21-19-17-21932-R01.rec
 ```
 
 See example outputs in [/examples](https://github.com/redraskal/r6-dissect/tree/main/examples).
+
+### Match feedback fields
+| Field | Description |
+|---|---|
+| `time` / `timeInSeconds` | The in-game timer when the event happened. The timer restarts its countdown in every phase, so after a plant it shows the defuser timer. |
+| `phase` | `Prep`, `Action` or `PostPlant` (after the defuser was planted). |
+| `elapsedSeconds` | Seconds since the action phase started. Always increases during a round; negative during the preparation phase. Use this to order or compare events. |
+| `teamKill` | The kill was a teamkill. Teamkills count as a death for the victim but not as a kill. |
+| `dbnoBy` / `finishedBy` | For kills of a downed player: `username` and `dbnoBy` are the player who downed them (who gets the kill on the scoreboard), `finishedBy` is the player who finished them off, if different. |
+| `bleedOut` | On `Death` events: the player bled out after being downed. |
+
+Some events are inferred rather than read directly from the replay: on Y10S4+ replays, the defuser planter/disabler is identified from the +100 score bonus, revives from the +50 score bonus, and a `DefuserDisableComplete` is added when defense wins a round after a plant.
 
 ## Importing a .rec file
 ```go
