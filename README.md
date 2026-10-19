@@ -157,5 +157,13 @@ go generate ./dissect/...
 ```
 This scrapes the current operator list from Ubisoft's website and updates `dissect/operator_roles.go`.
 
+The tests comparing our operators with Ubisoft's website only run when `R6_DISSECT_NETWORK_TESTS=1` is set, and weekly in the Operators workflow.
+
+## Tests
+Each `.rec` file in `dissect/test/data/replays/valid` is parsed and compared with the `.rec.json` file next to it. After an intended change in output, regenerate them with:
+```bash
+go test ./dissect/test -run TestReader_Read -update
+```
+
 #
 I would like to thank [stnokott](https://github.com/stnokott) for their work on r6-dissect, along with [draguve](https://github.com/draguve) & other contributors at [draguve/R6-Replays](https://github.com/draguve/R6-Replays) for their additional reverse engineering work.

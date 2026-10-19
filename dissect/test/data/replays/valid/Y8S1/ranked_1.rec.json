@@ -26,12 +26,14 @@
 		"teams": [
 			{
 				"name": "YOUR TEAM",
+				"startingScore": 0,
 				"score": 0,
 				"won": false,
 				"role": "Attack"
 			},
 			{
 				"name": "OPPONENTS",
+				"startingScore": 0,
 				"score": 1,
 				"won": true,
 				"winCondition": "Time",
@@ -255,6 +257,8 @@
 			},
 			"time": "0:00",
 			"timeInSeconds": 0,
+			"phase": "Prep",
+			"elapsedSeconds": -0,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -265,6 +269,8 @@
 			"username": "Vanille.SOOS",
 			"time": "0:28",
 			"timeInSeconds": 28,
+			"phase": "Prep",
+			"elapsedSeconds": -28,
 			"operator": {
 				"name": "Gridlock",
 				"id": 174977508808
@@ -277,7 +283,9 @@
 			},
 			"username": "Metaxa.SOOS",
 			"time": "0:22",
-			"timeInSeconds": 22
+			"timeInSeconds": 22,
+			"phase": "Prep",
+			"elapsedSeconds": -22
 		},
 		{
 			"type": {
@@ -287,6 +295,8 @@
 			"username": "Knoblauch.SOOS",
 			"time": "0:22",
 			"timeInSeconds": 22,
+			"phase": "Prep",
+			"elapsedSeconds": -22,
 			"operator": {
 				"name": "Sledge",
 				"id": 92270642344
@@ -299,6 +309,8 @@
 			},
 			"time": "2:59",
 			"timeInSeconds": 179,
+			"phase": "Action",
+			"elapsedSeconds": 0,
 			"message": "Friendly Fire is now active"
 		},
 		{
@@ -310,7 +322,9 @@
 			"target": "Metaxa.SOOS",
 			"headshot": true,
 			"time": "1:11",
-			"timeInSeconds": 71
+			"timeInSeconds": 71,
+			"phase": "Action",
+			"elapsedSeconds": 108
 		},
 		{
 			"type": {
@@ -321,7 +335,35 @@
 			"target": "Chili.SOOS",
 			"headshot": false,
 			"time": "0:44",
-			"timeInSeconds": 44
+			"timeInSeconds": 44,
+			"phase": "Action",
+			"elapsedSeconds": 135
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "andony._.",
+			"target": "Erdnuss.SOOS",
+			"headshot": false,
+			"time": "0:12",
+			"timeInSeconds": 12,
+			"phase": "Action",
+			"elapsedSeconds": 167
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "Knoblauch.SOOS",
+			"target": "QWERTUSZ",
+			"headshot": false,
+			"time": "0:07",
+			"timeInSeconds": 7,
+			"phase": "Action",
+			"elapsedSeconds": 172
 		},
 		{
 			"type": {
@@ -331,19 +373,11 @@
 			"username": "andony._.",
 			"target": "Erdnuss.SOOS",
 			"headshot": false,
-			"time": "0:12",
-			"timeInSeconds": 12
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "Knoblauch.SOOS",
-			"target": "QWERTUSZ",
-			"headshot": false,
 			"time": "0:07",
-			"timeInSeconds": 7
+			"timeInSeconds": 7,
+			"phase": "Action",
+			"elapsedSeconds": 172,
+			"dbnoBy": "andony._."
 		},
 		{
 			"type": {
@@ -354,7 +388,23 @@
 			"target": "MilusANevem",
 			"headshot": false,
 			"time": "0:07",
-			"timeInSeconds": 7
+			"timeInSeconds": 7,
+			"phase": "Action",
+			"elapsedSeconds": 172
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "Knoblauch.SOOS",
+			"target": "QWERTUSZ",
+			"headshot": false,
+			"time": "0:07",
+			"timeInSeconds": 7,
+			"phase": "Action",
+			"elapsedSeconds": 172,
+			"dbnoBy": "Knoblauch.SOOS"
 		},
 		{
 			"type": {
@@ -365,7 +415,9 @@
 			"target": "Du-Simulant.",
 			"headshot": true,
 			"time": "0:00",
-			"timeInSeconds": 0
+			"timeInSeconds": 0,
+			"phase": "Action",
+			"elapsedSeconds": 179
 		},
 		{
 			"type": {
@@ -374,7 +426,9 @@
 			},
 			"username": "QWERTUSZ",
 			"time": "0:07",
-			"timeInSeconds": 7
+			"timeInSeconds": 7,
+			"phase": "PostPlant",
+			"elapsedSeconds": 183
 		}
 	]
 }

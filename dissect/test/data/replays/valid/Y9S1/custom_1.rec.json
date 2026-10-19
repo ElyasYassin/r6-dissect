@@ -26,12 +26,14 @@
 		"teams": [
 			{
 				"name": "JAY",
+				"startingScore": 0,
 				"score": 0,
 				"won": false,
 				"role": "Attack"
 			},
 			{
 				"name": "GOHLY",
+				"startingScore": 0,
 				"score": 1,
 				"won": true,
 				"winCondition": "KilledOpponents",
@@ -334,6 +336,8 @@
 			"username": "Wry2K",
 			"time": "0:23",
 			"timeInSeconds": 23,
+			"phase": "Prep",
+			"elapsedSeconds": -23,
 			"operator": {
 				"name": "Grim",
 				"id": 374667788042
@@ -347,6 +351,8 @@
 			"username": "KicksFN.",
 			"time": "0:06",
 			"timeInSeconds": 6,
+			"phase": "Prep",
+			"elapsedSeconds": -6,
 			"operator": {
 				"name": "IQ",
 				"id": 92270642578
@@ -361,18 +367,22 @@
 			"target": "Moves.oL",
 			"headshot": false,
 			"time": "2:34",
-			"timeInSeconds": 154
+			"timeInSeconds": 154,
+			"phase": "Action",
+			"elapsedSeconds": 25
 		},
 		{
 			"type": {
-				"name": "Kill",
-				"id": 0
+				"name": "DBNO",
+				"id": 11
 			},
 			"username": "GiIiBVG.a5",
 			"target": "Wry2K",
 			"headshot": false,
 			"time": "2:02",
-			"timeInSeconds": 122
+			"timeInSeconds": 122,
+			"phase": "Action",
+			"elapsedSeconds": 57
 		},
 		{
 			"type": {
@@ -383,7 +393,23 @@
 			"target": "KicksFN.",
 			"headshot": true,
 			"time": "2:01",
-			"timeInSeconds": 121
+			"timeInSeconds": 121,
+			"phase": "Action",
+			"elapsedSeconds": 58
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "GiIiBVG.a5",
+			"target": "Wry2K",
+			"headshot": false,
+			"time": "2:01",
+			"timeInSeconds": 121,
+			"phase": "Action",
+			"elapsedSeconds": 58,
+			"dbnoBy": "GiIiBVG.a5"
 		},
 		{
 			"type": {
@@ -394,7 +420,9 @@
 			"target": "Dec-.",
 			"headshot": false,
 			"time": "1:50",
-			"timeInSeconds": 110
+			"timeInSeconds": 110,
+			"phase": "Action",
+			"elapsedSeconds": 69
 		},
 		{
 			"type": {
@@ -405,7 +433,9 @@
 			"target": "GiIiBVG.a5",
 			"headshot": true,
 			"time": "1:41",
-			"timeInSeconds": 101
+			"timeInSeconds": 101,
+			"phase": "Action",
+			"elapsedSeconds": 78
 		},
 		{
 			"type": {
@@ -416,7 +446,9 @@
 			"target": "Iefou",
 			"headshot": false,
 			"time": "1:17",
-			"timeInSeconds": 77
+			"timeInSeconds": 77,
+			"phase": "Action",
+			"elapsedSeconds": 102
 		},
 		{
 			"type": {
@@ -427,7 +459,9 @@
 			"target": "JayPhistol.",
 			"headshot": false,
 			"time": "1:00",
-			"timeInSeconds": 60
+			"timeInSeconds": 60,
+			"phase": "Action",
+			"elapsedSeconds": 119
 		}
 	]
 }

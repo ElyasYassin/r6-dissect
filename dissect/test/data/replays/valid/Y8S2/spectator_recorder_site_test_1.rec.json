@@ -4,7 +4,7 @@
 		"codeVersion": 7601998,
 		"timestamp": "2023-06-08T20:35:59Z",
 		"matchType": {
-			"name": "CustomGameOnline",
+			"name": "Standard",
 			"id": 8
 		},
 		"map": {
@@ -26,12 +26,14 @@
 		"teams": [
 			{
 				"name": "VEGA ESPORTS",
+				"startingScore": 0,
 				"score": 0,
 				"won": false,
 				"role": "Attack"
 			},
 			{
 				"name": "NEEDONE AGENCY",
+				"startingScore": 0,
 				"score": 1,
 				"won": true,
 				"winCondition": "KilledOpponents",
@@ -328,6 +330,8 @@
 			},
 			"time": "0:00",
 			"timeInSeconds": 0,
+			"phase": "Prep",
+			"elapsedSeconds": -0,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -338,6 +342,8 @@
 			"username": "qtNolf.Vega",
 			"time": "0:22",
 			"timeInSeconds": 22,
+			"phase": "Prep",
+			"elapsedSeconds": -22,
 			"operator": {
 				"name": "Fuze",
 				"id": 92270642032
@@ -351,6 +357,8 @@
 			"username": "yMk.Vega",
 			"time": "0:20",
 			"timeInSeconds": 20,
+			"phase": "Prep",
+			"elapsedSeconds": -20,
 			"operator": {
 				"name": "Zero",
 				"id": 291191151607
@@ -364,6 +372,8 @@
 			"username": "ilyPozo.Vega",
 			"time": "0:17",
 			"timeInSeconds": 17,
+			"phase": "Prep",
+			"elapsedSeconds": -17,
 			"operator": {
 				"name": "Ying",
 				"id": 92270642292
@@ -376,18 +386,22 @@
 			},
 			"time": "2:59",
 			"timeInSeconds": 179,
+			"phase": "Action",
+			"elapsedSeconds": 0,
 			"message": "Friendly Fire is now active"
 		},
 		{
 			"type": {
-				"name": "Kill",
-				"id": 0
+				"name": "DBNO",
+				"id": 11
 			},
 			"username": "yMk.Vega",
 			"target": "Ben.ND1",
 			"headshot": false,
 			"time": "1:19",
-			"timeInSeconds": 79
+			"timeInSeconds": 79,
+			"phase": "Action",
+			"elapsedSeconds": 100
 		},
 		{
 			"type": {
@@ -398,7 +412,23 @@
 			"target": "yMk.Vega",
 			"headshot": true,
 			"time": "1:18",
-			"timeInSeconds": 78
+			"timeInSeconds": 78,
+			"phase": "Action",
+			"elapsedSeconds": 101
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "yMk.Vega",
+			"target": "Ben.ND1",
+			"headshot": false,
+			"time": "1:18",
+			"timeInSeconds": 78,
+			"phase": "Action",
+			"elapsedSeconds": 101,
+			"dbnoBy": "yMk.Vega"
 		},
 		{
 			"type": {
@@ -409,7 +439,9 @@
 			"target": "prvx.Vega",
 			"headshot": true,
 			"time": "1:05",
-			"timeInSeconds": 65
+			"timeInSeconds": 65,
+			"phase": "Action",
+			"elapsedSeconds": 114
 		},
 		{
 			"type": {
@@ -420,18 +452,22 @@
 			"target": "OxyD.Vega",
 			"headshot": true,
 			"time": "0:37",
-			"timeInSeconds": 37
+			"timeInSeconds": 37,
+			"phase": "Action",
+			"elapsedSeconds": 142
 		},
 		{
 			"type": {
-				"name": "Kill",
-				"id": 0
+				"name": "DBNO",
+				"id": 11
 			},
 			"username": "Bashaa.ND1",
 			"target": "ilyPozo.Vega",
 			"headshot": false,
 			"time": "0:04",
-			"timeInSeconds": 4
+			"timeInSeconds": 4,
+			"phase": "Action",
+			"elapsedSeconds": 175
 		},
 		{
 			"type": {
@@ -442,7 +478,23 @@
 			"target": "qtNolf.Vega",
 			"headshot": false,
 			"time": "0:00",
-			"timeInSeconds": 0
+			"timeInSeconds": 0,
+			"phase": "Action",
+			"elapsedSeconds": 179
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "Bashaa.ND1",
+			"target": "ilyPozo.Vega",
+			"headshot": false,
+			"time": "0:00",
+			"timeInSeconds": 0,
+			"phase": "Action",
+			"elapsedSeconds": 179,
+			"dbnoBy": "Bashaa.ND1"
 		}
 	]
 }

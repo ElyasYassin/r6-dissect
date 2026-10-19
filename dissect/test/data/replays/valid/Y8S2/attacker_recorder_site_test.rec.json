@@ -26,12 +26,14 @@
 		"teams": [
 			{
 				"name": "YOUR TEAM",
+				"startingScore": 0,
 				"score": 0,
 				"won": false,
 				"role": "Attack"
 			},
 			{
 				"name": "OPPONENTS",
+				"startingScore": 0,
 				"score": 1,
 				"won": true,
 				"winCondition": "KilledOpponents",
@@ -252,6 +254,8 @@
 			},
 			"time": "0:00",
 			"timeInSeconds": 0,
+			"phase": "Prep",
+			"elapsedSeconds": -0,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -261,7 +265,9 @@
 			},
 			"username": "Melon_.-",
 			"time": "0:34",
-			"timeInSeconds": 34
+			"timeInSeconds": 34,
+			"phase": "Prep",
+			"elapsedSeconds": -34
 		},
 		{
 			"type": {
@@ -270,7 +276,35 @@
 			},
 			"time": "2:59",
 			"timeInSeconds": 179,
+			"phase": "Action",
+			"elapsedSeconds": 0,
 			"message": "Friendly Fire is now active"
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "Mr.Cuhh",
+			"target": "BlackTakis69",
+			"headshot": true,
+			"time": "2:27",
+			"timeInSeconds": 147,
+			"phase": "Action",
+			"elapsedSeconds": 32
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "Mr.Cuhh",
+			"target": "FORIIEGNER",
+			"headshot": true,
+			"time": "2:21",
+			"timeInSeconds": 141,
+			"phase": "Action",
+			"elapsedSeconds": 38
 		},
 		{
 			"type": {
@@ -280,8 +314,24 @@
 			"username": "Mr.Cuhh",
 			"target": "BlackTakis69",
 			"headshot": true,
-			"time": "2:27",
-			"timeInSeconds": 147
+			"time": "2:21",
+			"timeInSeconds": 141,
+			"phase": "Action",
+			"elapsedSeconds": 38,
+			"dbnoBy": "Mr.Cuhh"
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "weasil4211",
+			"target": "redraskal",
+			"headshot": true,
+			"time": "2:18",
+			"timeInSeconds": 138,
+			"phase": "Action",
+			"elapsedSeconds": 41
 		},
 		{
 			"type": {
@@ -291,8 +341,25 @@
 			"username": "Mr.Cuhh",
 			"target": "FORIIEGNER",
 			"headshot": true,
-			"time": "2:21",
-			"timeInSeconds": 141
+			"time": "2:18",
+			"timeInSeconds": 138,
+			"phase": "Action",
+			"elapsedSeconds": 41,
+			"dbnoBy": "Mr.Cuhh"
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "IllIIllIlIlIll",
+			"target": "weasil4211",
+			"headshot": false,
+			"time": "2:18",
+			"timeInSeconds": 138,
+			"phase": "Action",
+			"elapsedSeconds": 41,
+			"teamKill": true
 		},
 		{
 			"type": {
@@ -303,7 +370,21 @@
 			"target": "redraskal",
 			"headshot": true,
 			"time": "2:18",
-			"timeInSeconds": 138
+			"timeInSeconds": 138,
+			"phase": "Action",
+			"elapsedSeconds": 41,
+			"dbnoBy": "weasil4211"
+		},
+		{
+			"type": {
+				"name": "Other",
+				"id": 10
+			},
+			"time": "2:18",
+			"timeInSeconds": 138,
+			"phase": "Action",
+			"elapsedSeconds": 41,
+			"message": "Reverse Friendly Fire has been activated for IllIIllIlIlIll"
 		},
 		{
 			"type": {
@@ -314,16 +395,11 @@
 			"target": "weasil4211",
 			"headshot": false,
 			"time": "2:18",
-			"timeInSeconds": 138
-		},
-		{
-			"type": {
-				"name": "Other",
-				"id": 10
-			},
-			"time": "2:18",
 			"timeInSeconds": 138,
-			"message": "Reverse Friendly Fire has been activated for IllIIllIlIlIll"
+			"phase": "Action",
+			"elapsedSeconds": 41,
+			"teamKill": true,
+			"dbnoBy": "IllIIllIlIlIll"
 		},
 		{
 			"type": {
@@ -332,18 +408,22 @@
 			},
 			"time": "2:10",
 			"timeInSeconds": 130,
+			"phase": "Action",
+			"elapsedSeconds": 49,
 			"message": "Reverse Friendly Fire has been deactivated for IllIIllIlIlIll"
 		},
 		{
 			"type": {
-				"name": "Kill",
-				"id": 0
+				"name": "DBNO",
+				"id": 11
 			},
 			"username": "IllIIllIlIlIll",
 			"target": "Shives007",
 			"headshot": false,
 			"time": "1:22",
-			"timeInSeconds": 82
+			"timeInSeconds": 82,
+			"phase": "Action",
+			"elapsedSeconds": 97
 		},
 		{
 			"type": {
@@ -354,7 +434,23 @@
 			"target": "Mr.Cuhh",
 			"headshot": true,
 			"time": "1:19",
-			"timeInSeconds": 79
+			"timeInSeconds": 79,
+			"phase": "Action",
+			"elapsedSeconds": 100
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "IllIIllIlIlIll",
+			"target": "Shives007",
+			"headshot": false,
+			"time": "1:19",
+			"timeInSeconds": 79,
+			"phase": "Action",
+			"elapsedSeconds": 100,
+			"dbnoBy": "IllIIllIlIlIll"
 		},
 		{
 			"type": {
@@ -365,7 +461,9 @@
 			"target": "Melon_.-",
 			"headshot": false,
 			"time": "1:03",
-			"timeInSeconds": 63
+			"timeInSeconds": 63,
+			"phase": "Action",
+			"elapsedSeconds": 116
 		}
 	]
 }

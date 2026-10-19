@@ -26,6 +26,7 @@
 		"teams": [
 			{
 				"name": "YOUR TEAM",
+				"startingScore": 0,
 				"score": 2,
 				"won": true,
 				"winCondition": "KilledOpponents",
@@ -33,6 +34,7 @@
 			},
 			{
 				"name": "OPPONENTS",
+				"startingScore": 0,
 				"score": 3,
 				"won": false,
 				"role": "Attack"
@@ -255,6 +257,8 @@
 			},
 			"time": "0:00",
 			"timeInSeconds": 0,
+			"phase": "Prep",
+			"elapsedSeconds": -0,
 			"message": "3"
 		},
 		{
@@ -264,6 +268,8 @@
 			},
 			"time": "0:00",
 			"timeInSeconds": 0,
+			"phase": "Prep",
+			"elapsedSeconds": -0,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -273,7 +279,9 @@
 			},
 			"username": "IllIIllIlIlIll",
 			"time": "0:21",
-			"timeInSeconds": 21
+			"timeInSeconds": 21,
+			"phase": "Prep",
+			"elapsedSeconds": -21
 		},
 		{
 			"type": {
@@ -282,6 +290,8 @@
 			},
 			"time": "2:59",
 			"timeInSeconds": 179,
+			"phase": "Action",
+			"elapsedSeconds": 0,
 			"message": "Friendly Fire is now active"
 		},
 		{
@@ -293,18 +303,22 @@
 			"target": "BleisusChrist",
 			"headshot": true,
 			"time": "2:28",
-			"timeInSeconds": 148
+			"timeInSeconds": 148,
+			"phase": "Action",
+			"elapsedSeconds": 31
 		},
 		{
 			"type": {
-				"name": "Kill",
-				"id": 0
+				"name": "DBNO",
+				"id": 11
 			},
 			"username": "redraskal",
 			"target": "Mr.Cuhh",
 			"headshot": false,
 			"time": "2:21",
-			"timeInSeconds": 141
+			"timeInSeconds": 141,
+			"phase": "Action",
+			"elapsedSeconds": 38
 		},
 		{
 			"type": {
@@ -315,18 +329,36 @@
 			"target": "IllIIllIlIlIll",
 			"headshot": true,
 			"time": "2:20",
-			"timeInSeconds": 140
+			"timeInSeconds": 140,
+			"phase": "Action",
+			"elapsedSeconds": 39
 		},
 		{
 			"type": {
 				"name": "Kill",
 				"id": 0
 			},
+			"username": "redraskal",
+			"target": "Mr.Cuhh",
+			"headshot": false,
+			"time": "2:20",
+			"timeInSeconds": 140,
+			"phase": "Action",
+			"elapsedSeconds": 39,
+			"dbnoBy": "redraskal"
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
 			"username": "MUSTARD691",
 			"target": "Shives007",
 			"headshot": true,
 			"time": "2:04",
-			"timeInSeconds": 124
+			"timeInSeconds": 124,
+			"phase": "Action",
+			"elapsedSeconds": 55
 		},
 		{
 			"type": {
@@ -337,18 +369,36 @@
 			"target": "redraskal",
 			"headshot": true,
 			"time": "2:00",
-			"timeInSeconds": 120
+			"timeInSeconds": 120,
+			"phase": "Action",
+			"elapsedSeconds": 59
 		},
 		{
 			"type": {
 				"name": "Kill",
 				"id": 0
 			},
+			"username": "MUSTARD691",
+			"target": "Shives007",
+			"headshot": true,
+			"time": "2:00",
+			"timeInSeconds": 120,
+			"phase": "Action",
+			"elapsedSeconds": 59,
+			"dbnoBy": "MUSTARD691"
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
 			"username": "Melon_.-",
 			"target": "weasil4211",
 			"headshot": true,
 			"time": "1:46",
-			"timeInSeconds": 106
+			"timeInSeconds": 106,
+			"phase": "Action",
+			"elapsedSeconds": 73
 		},
 		{
 			"type": {
@@ -359,7 +409,23 @@
 			"target": "MUSTARD691",
 			"headshot": true,
 			"time": "1:40",
-			"timeInSeconds": 100
+			"timeInSeconds": 100,
+			"phase": "Action",
+			"elapsedSeconds": 79
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "Melon_.-",
+			"target": "weasil4211",
+			"headshot": true,
+			"time": "1:40",
+			"timeInSeconds": 100,
+			"phase": "Action",
+			"elapsedSeconds": 79,
+			"dbnoBy": "Melon_.-"
 		}
 	]
 }

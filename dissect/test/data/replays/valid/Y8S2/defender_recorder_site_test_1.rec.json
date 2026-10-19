@@ -26,6 +26,7 @@
 		"teams": [
 			{
 				"name": "OPPONENTS",
+				"startingScore": 0,
 				"score": 1,
 				"won": true,
 				"winCondition": "KilledOpponents",
@@ -33,6 +34,7 @@
 			},
 			{
 				"name": "YOUR TEAM",
+				"startingScore": 0,
 				"score": 0,
 				"won": false,
 				"role": "Defense"
@@ -256,6 +258,8 @@
 			},
 			"time": "0:00",
 			"timeInSeconds": 0,
+			"phase": "Prep",
+			"elapsedSeconds": -0,
 			"message": "Friendly Fire turned off until Action Phase"
 		},
 		{
@@ -265,7 +269,9 @@
 			},
 			"username": "D0n4ldDuck69",
 			"time": "0:28",
-			"timeInSeconds": 28
+			"timeInSeconds": 28,
+			"phase": "Prep",
+			"elapsedSeconds": -28
 		},
 		{
 			"type": {
@@ -275,6 +281,8 @@
 			"username": "phsVB.lib",
 			"time": "0:21",
 			"timeInSeconds": 21,
+			"phase": "Prep",
+			"elapsedSeconds": -21,
 			"operator": {
 				"name": "Lion",
 				"id": 104189661861
@@ -288,6 +296,8 @@
 			"username": "phsVB.mid",
 			"time": "0:17",
 			"timeInSeconds": 17,
+			"phase": "Prep",
+			"elapsedSeconds": -17,
 			"operator": {
 				"name": "Hibana",
 				"id": 92270642240
@@ -301,6 +311,8 @@
 			"username": "phsVB.mid",
 			"time": "0:14",
 			"timeInSeconds": 14,
+			"phase": "Prep",
+			"elapsedSeconds": -14,
 			"operator": {
 				"name": "Ash",
 				"id": 92270642656
@@ -314,6 +326,8 @@
 			"username": "phsVB.lib",
 			"time": "0:13",
 			"timeInSeconds": 13,
+			"phase": "Prep",
+			"elapsedSeconds": -13,
 			"operator": {
 				"name": "Ace",
 				"id": 104189664390
@@ -326,6 +340,8 @@
 			},
 			"time": "2:59",
 			"timeInSeconds": 179,
+			"phase": "Action",
+			"elapsedSeconds": 0,
 			"message": "Friendly Fire is now active"
 		},
 		{
@@ -337,18 +353,22 @@
 			"target": "clikx_",
 			"headshot": true,
 			"time": "2:40",
-			"timeInSeconds": 160
+			"timeInSeconds": 160,
+			"phase": "Action",
+			"elapsedSeconds": 19
 		},
 		{
 			"type": {
-				"name": "Kill",
-				"id": 0
+				"name": "DBNO",
+				"id": 11
 			},
 			"username": "D0n4ldDuck69",
 			"target": "redraskal",
 			"headshot": false,
 			"time": "2:26",
-			"timeInSeconds": 146
+			"timeInSeconds": 146,
+			"phase": "Action",
+			"elapsedSeconds": 33
 		},
 		{
 			"type": {
@@ -359,7 +379,49 @@
 			"target": "reclown6",
 			"headshot": true,
 			"time": "2:23",
-			"timeInSeconds": 143
+			"timeInSeconds": 143,
+			"phase": "Action",
+			"elapsedSeconds": 36
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "D0n4ldDuck69",
+			"target": "redraskal",
+			"headshot": false,
+			"time": "2:23",
+			"timeInSeconds": 143,
+			"phase": "Action",
+			"elapsedSeconds": 36,
+			"dbnoBy": "D0n4ldDuck69"
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "phsVB.mid",
+			"target": "Dyslexic-Batnam",
+			"headshot": true,
+			"time": "2:13",
+			"timeInSeconds": 133,
+			"phase": "Action",
+			"elapsedSeconds": 46
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "FunTimeSpacey",
+			"target": "D0n4ldDuck69",
+			"headshot": false,
+			"time": "2:10",
+			"timeInSeconds": 130,
+			"phase": "Action",
+			"elapsedSeconds": 49
 		},
 		{
 			"type": {
@@ -369,19 +431,11 @@
 			"username": "phsVB.mid",
 			"target": "Dyslexic-Batnam",
 			"headshot": true,
-			"time": "2:13",
-			"timeInSeconds": 133
-		},
-		{
-			"type": {
-				"name": "Kill",
-				"id": 0
-			},
-			"username": "FunTimeSpacey",
-			"target": "D0n4ldDuck69",
-			"headshot": false,
 			"time": "2:10",
-			"timeInSeconds": 130
+			"timeInSeconds": 130,
+			"phase": "Action",
+			"elapsedSeconds": 49,
+			"dbnoBy": "phsVB.mid"
 		},
 		{
 			"type": {
@@ -392,7 +446,23 @@
 			"target": "FunTimeSpacey",
 			"headshot": false,
 			"time": "2:07",
-			"timeInSeconds": 127
+			"timeInSeconds": 127,
+			"phase": "Action",
+			"elapsedSeconds": 52
+		},
+		{
+			"type": {
+				"name": "Kill",
+				"id": 0
+			},
+			"username": "FunTimeSpacey",
+			"target": "D0n4ldDuck69",
+			"headshot": false,
+			"time": "2:07",
+			"timeInSeconds": 127,
+			"phase": "Action",
+			"elapsedSeconds": 52,
+			"dbnoBy": "FunTimeSpacey"
 		}
 	]
 }
