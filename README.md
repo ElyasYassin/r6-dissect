@@ -35,7 +35,7 @@ Example output (abbreviated):
   "codeVersion": 9578674,
   "timestamp": "2026-03-25T23:16:52Z",
   "matchType": { "name": "Ranked", "id": 2 },
-  "map": { "name": "Kafe Dostoyevsky", "id": 434715462383 },
+  "map": { "name": "KafeDostoyevskyY10", "id": 413845419788 },
   "gamemode": { "name": "Bomb", "id": 327933806 },
   "teams": [
     { "name": "YOUR TEAM", "score": 1, "won": true, "winCondition": "KilledOpponents", "role": "Attack" },
