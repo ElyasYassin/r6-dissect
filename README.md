@@ -93,7 +93,7 @@ See example outputs in [/examples](https://github.com/redraskal/r6-dissect/tree/
 ### Match feedback fields
 | Field | Description |
 |---|---|
-| `time` / `timeInSeconds` | The in-game timer when the event happened. The timer restarts its countdown in every phase, so after a plant it shows the defuser timer. |
+| `time` / `timeInSeconds` | The in-game timer when the event happened. The timer restarts its countdown in every phase, so after a plant it shows the defuser timer, and when a round ends early it reads 0:00 for the events that end the round. |
 | `phase` | `Prep`, `Action` or `PostPlant` (after the defuser was planted). |
 | `elapsedSeconds` | Seconds since the action phase started. Always increases during a round; negative during the preparation phase. Use this to order or compare events. |
 | `teamKill` | The kill was a teamkill. Teamkills count as a death for the victim but not as a kill. |
