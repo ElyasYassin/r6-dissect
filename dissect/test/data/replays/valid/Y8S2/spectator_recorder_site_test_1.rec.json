@@ -53,7 +53,13 @@
 				"roleImage": 1326495639,
 				"roleName": "JÄGER",
 				"rolePortrait": 27880706811,
-				"spawn": "B Church, B Arsenal Room"
+				"spawn": "B Church, B Arsenal Room",
+				"loadout": {
+					"primary": 1366019208,
+					"secondary": 1366019496,
+					"gadget": 243267468233,
+					"ability": 133651069294
+				}
 			},
 			{
 				"id": 9057122370912899002,
@@ -69,7 +75,13 @@
 				"roleImage": 375628889901,
 				"roleName": "AZAMI",
 				"rolePortrait": 378305072064,
-				"spawn": "B Church, B Arsenal Room"
+				"spawn": "B Church, B Arsenal Room",
+				"loadout": {
+					"primary": 1366019652,
+					"secondary": 34160268720,
+					"gadget": 133651070318,
+					"ability": 375628878643
+				}
 			},
 			{
 				"id": 5414101548421158657,
@@ -85,7 +97,13 @@
 				"roleImage": 39149215373,
 				"roleName": "ECHO",
 				"rolePortrait": 39149215397,
-				"spawn": "B Church, B Arsenal Room"
+				"spawn": "B Church, B Arsenal Room",
+				"loadout": {
+					"primary": 39149214686,
+					"secondary": 39149214668,
+					"gadget": 133651070282,
+					"ability": 133651069240
+				}
 			},
 			{
 				"id": 13970807327052011290,
@@ -101,7 +119,13 @@
 				"roleImage": 1326495635,
 				"roleName": "KAPKAN",
 				"rolePortrait": 27880706822,
-				"spawn": "B Church, B Arsenal Room"
+				"spawn": "B Church, B Arsenal Room",
+				"loadout": {
+					"primary": 1366019652,
+					"secondary": 1366019460,
+					"gadget": 133651070294,
+					"ability": 133651069300
+				}
 			},
 			{
 				"id": 13125955384298675907,
@@ -117,7 +141,13 @@
 				"roleImage": 39149215445,
 				"roleName": "MIRA",
 				"rolePortrait": 39149215469,
-				"spawn": "B Church, B Arsenal Room"
+				"spawn": "B Church, B Arsenal Room",
+				"loadout": {
+					"primary": 44316587819,
+					"secondary": 39149216440,
+					"gadget": 133651070294,
+					"ability": 133651069324
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -129,7 +159,13 @@
 					"id": 92270642292
 				},
 				"alliance": 0,
-				"spawn": "Construction Site"
+				"spawn": "Construction Site",
+				"loadout": {
+					"primary": 53995319813,
+					"secondary": 53995319945,
+					"gadget": 263047965420,
+					"ability": 133651069402
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -141,7 +177,13 @@
 					"id": 291191151607
 				},
 				"alliance": 0,
-				"spawn": "Construction Site"
+				"spawn": "Construction Site",
+				"loadout": {
+					"primary": 291191166795,
+					"secondary": 263048049828,
+					"gadget": 263047965420,
+					"ability": 291191140237
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -153,7 +195,13 @@
 					"id": 92270642032
 				},
 				"alliance": 0,
-				"spawn": "Warehouse"
+				"spawn": "Warehouse",
+				"loadout": {
+					"primary": 1366019220,
+					"secondary": 1366019436,
+					"gadget": 263047965420,
+					"ability": 133651069264
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -165,7 +213,13 @@
 					"id": 92270642240
 				},
 				"alliance": 0,
-				"spawn": "Main Gate"
+				"spawn": "Main Gate",
+				"loadout": {
+					"primary": 39149214704,
+					"secondary": 39149214668,
+					"gadget": 133651070288,
+					"ability": 133651069276
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -177,7 +231,13 @@
 					"id": 104189664038
 				},
 				"alliance": 0,
-				"spawn": "Warehouse"
+				"spawn": "Warehouse",
+				"loadout": {
+					"primary": 161289761758,
+					"secondary": 13333481774,
+					"gadget": 133651070436,
+					"ability": 201523838470
+				}
 			}
 		],
 		"gmSettings": [

@@ -40,6 +40,7 @@ type Reader struct {
 	pendingDefuserPlantIdx   int                // Y10S4+: index into MatchFeedback for DefuserPlantComplete/DisableComplete with unknown player (-1 = none)
 	pendingDefuserIsPlant    bool               // Y10S4+: true if pending event is plant (attacker), false if disable (defender)
 	lastPlayerScores         map[int]uint32     // Y10S4+: last known score per player index (for detecting +100 plant/disable bonus)
+	inventory                *inventoryState    // Y8S1+: player inventories for loadouts
 	pendingRevives           []scoreReviveCandidate
 	Header                   Header        `json:"header"`
 	MatchFeedback            []MatchUpdate `json:"matchFeedback"`
@@ -88,6 +89,7 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 	r.Listen([]byte{0xEC, 0xDA, 0x4F, 0x80}, readScoreboardScore)
 	r.Listen([]byte{0x4D, 0x73, 0x7F, 0x9E}, readScoreboardAssists)
 	r.Listen([]byte{0x1C, 0xD2, 0xB1, 0x9D}, readScoreboardKills)
+	r.listenLoadouts()
 	return r, err
 }
 
@@ -251,6 +253,7 @@ func (r *Reader) Read() (err error) {
 		r.stampNew(n)
 		r.detectRevivesFromScore()
 		r.detectBleedouts()
+		r.applyLoadouts()
 	}
 	r.b = nil
 	return err

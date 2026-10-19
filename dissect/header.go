@@ -53,6 +53,7 @@ type Player struct {
 	RoleName     string   `json:"roleName,omitempty"`
 	RolePortrait int      `json:"rolePortrait,omitempty"`
 	Spawn        string   `json:"spawn,omitempty"`
+	Loadout      *Loadout `json:"loadout,omitempty"`
 	DissectID    []byte   `json:"-" deep:"-"` // dissect player id at end of packet (4 bytes)
 	uiID         uint64   `json:"-" deep:"-"`
 }

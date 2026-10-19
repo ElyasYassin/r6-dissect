@@ -53,7 +53,13 @@
 				"roleImage": 39149215445,
 				"roleName": "MIRA",
 				"rolePortrait": 39149215469,
-				"spawn": "B Laundry Room, B Supply Room"
+				"spawn": "B Laundry Room, B Supply Room",
+				"loadout": {
+					"primary": 44316587819,
+					"secondary": 39149216440,
+					"gadget": 133651070294,
+					"ability": 133651069324
+				}
 			},
 			{
 				"id": 2115770487829649921,
@@ -69,7 +75,13 @@
 				"roleImage": 183220539138,
 				"roleName": "MOZZIE",
 				"rolePortrait": 174977498152,
-				"spawn": "B Laundry Room, B Supply Room"
+				"spawn": "B Laundry Room, B Supply Room",
+				"loadout": {
+					"primary": 168013421995,
+					"secondary": 168013421977,
+					"gadget": 133651070294,
+					"ability": 184227273319
+				}
 			},
 			{
 				"id": 12423407926057464446,
@@ -85,7 +97,13 @@
 				"roleImage": 104189663738,
 				"roleName": "WAMAI",
 				"rolePortrait": 104189663764,
-				"spawn": "B Laundry Room, B Supply Room"
+				"spawn": "B Laundry Room, B Supply Room",
+				"loadout": {
+					"primary": 1366019232,
+					"secondary": 127174503990,
+					"gadget": 127363389074,
+					"ability": 201523838464
+				}
 			},
 			{
 				"id": 11179710167508969773,
@@ -101,7 +119,13 @@
 				"roleImage": 1326495671,
 				"roleName": "BANDIT",
 				"rolePortrait": 27880706734,
-				"spawn": "B Laundry Room, B Supply Room"
+				"spawn": "B Laundry Room, B Supply Room",
+				"loadout": {
+					"primary": 1366019616,
+					"secondary": 1366019496,
+					"gadget": 133651070294,
+					"ability": 133651069186
+				}
 			},
 			{
 				"id": 9320425958149849652,
@@ -117,7 +141,13 @@
 				"roleImage": 39149215661,
 				"roleName": "VIGIL",
 				"rolePortrait": 39149215685,
-				"spawn": "B Laundry Room, B Supply Room"
+				"spawn": "B Laundry Room, B Supply Room",
+				"loadout": {
+					"primary": 78526932247,
+					"secondary": 78526932130,
+					"gadget": 133651070318,
+					"ability": 133651069396
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -129,7 +159,13 @@
 					"id": 104189664038
 				},
 				"alliance": 0,
-				"spawn": "Junkyard"
+				"spawn": "Junkyard",
+				"loadout": {
+					"primary": 1366019256,
+					"secondary": 13333481774,
+					"gadget": 133651070436,
+					"ability": 201523838470
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -141,7 +177,13 @@
 					"id": 92270642344
 				},
 				"alliance": 0,
-				"spawn": "Construction Site"
+				"spawn": "Construction Site",
+				"loadout": {
+					"primary": 1366019304,
+					"secondary": 1366019484,
+					"gadget": 133651070436,
+					"ability": 133651069354
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -153,7 +195,13 @@
 					"id": 92270642656
 				},
 				"alliance": 0,
-				"spawn": "Street"
+				"spawn": "Street",
+				"loadout": {
+					"primary": 1366019256,
+					"secondary": 1366019412,
+					"gadget": 133651070240,
+					"ability": 133651069180
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -165,7 +213,13 @@
 					"id": 104189664390
 				},
 				"alliance": 0,
-				"spawn": "Construction Site"
+				"spawn": "Construction Site",
+				"loadout": {
+					"primary": 1366019220,
+					"secondary": 1366019472,
+					"gadget": 133651070240,
+					"ability": 201523838482
+				}
 			},
 			{
 				"id": 5031908513475985408,
@@ -177,7 +231,13 @@
 					"id": 92270642760
 				},
 				"alliance": 0,
-				"spawn": "Construction Site"
+				"spawn": "Construction Site",
+				"loadout": {
+					"primary": 1366019340,
+					"secondary": 1366019412,
+					"gadget": 133651070312,
+					"ability": 133651069378
+				}
 			}
 		],
 		"gmSettings": [

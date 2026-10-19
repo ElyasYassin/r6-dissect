@@ -15,6 +15,7 @@ func readPlayer(r *Reader) error {
 	spawnIndicator := []byte{0xAF, 0x98, 0x99, 0xCA}
 	profileIDIndicator := []byte{0x8A, 0x50, 0x9B, 0xD0}
 	//unknownIndicator := []byte{0x22, 0xEE, 0xD4, 0x45, 0xC8, 0x08} // maybe player appearance?
+	playerObject := r.playerObjectBefore(r.offset - 5)
 	r.playersRead++
 	defer func() {
 		if r.playersRead == 10 {
@@ -172,6 +173,7 @@ func readPlayer(r *Reader) error {
 	}
 	if foundIndex >= 0 {
 		r.readPlayerOrder = append(r.readPlayerOrder, foundIndex)
+		r.trackPlayerObject(playerObject, r.Header.Players[foundIndex])
 	}
 	return err
 }
