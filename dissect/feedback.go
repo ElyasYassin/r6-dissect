@@ -162,8 +162,6 @@ func readMatchFeedback(r *Reader) error {
 			*headshotPtr = true
 		}
 		u.Headshot = headshotPtr
-		u.scoreboardKiller = r.lastScoreboardKiller
-		r.lastScoreboardKiller = ""
 		log.Debug().
 			Str("killer", username).
 			Str("target", target).
@@ -197,6 +195,8 @@ func readMatchFeedback(r *Reader) error {
 				return nil
 			}
 		}
+		u.scoreboardKiller = r.lastScoreboardKiller
+		r.lastScoreboardKiller = ""
 		r.MatchFeedback = append(r.MatchFeedback, u)
 		log.Debug().Interface("match_update", u).Send()
 		return nil

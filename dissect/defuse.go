@@ -262,7 +262,11 @@ func readDefuserTimerLegacy(r *Reader, timer string) error {
 		TimeInSeconds: r.time,
 	}
 	// stamp before the clock switches, the plant is the last event of the action phase
-	r.stamp(&u)
+	if u.Type == DefuserPlantComplete {
+		r.stampPlantComplete(&u)
+	} else {
+		r.stamp(&u)
+	}
 	r.MatchFeedback = append(r.MatchFeedback, u)
 	if u.Type == DefuserPlantComplete {
 		r.startPostPlant()
@@ -400,7 +404,11 @@ func (r *Reader) completeDefuserRun() {
 		TimeInSeconds: r.time,
 	}
 	// stamp before the clock switches, the plant is the last event of the action phase
-	r.stamp(&u)
+	if u.Type == DefuserPlantComplete {
+		r.stampPlantComplete(&u)
+	} else {
+		r.stamp(&u)
+	}
 	r.MatchFeedback = append(r.MatchFeedback, u)
 	if u.Type == DefuserPlantComplete {
 		r.startPostPlant()

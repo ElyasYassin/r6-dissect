@@ -24,8 +24,20 @@ type roundClock struct {
 	phaseStart   float64 // timer value when the current phase started
 	phaseElapsed float64 // elapsed seconds when the current phase started
 	started      bool
+	tick         float64 // last timer value that counted as a tick (differs from r.time after a round-end reset)
 	// set after a plant until the timer shows the defuser countdown
 	awaitCountdown bool
+	// the last action-phase tick, and whether the clock left the action phase through a
+	// timer jump (rather than a completed plant), see stampPlantComplete
+	last         actionTick
+	jumpedToPost bool
+}
+
+type actionTick struct {
+	valid   bool
+	time    float64
+	timeRaw string
+	elapsed float64
 }
 
 // prepPhaseMax is the longest timer value we consider to be a preparation phase countdown.
@@ -33,23 +45,35 @@ const prepPhaseMax = 60
 
 func (r *Reader) updateClock(t float64) {
 	c := &r.clock
+	// when a round ends early the game sends 0 right after a higher value. That is a reset,
+	// not a tick (in the post-plant phase it is the defuser timer), so events after it
+	// belong to the last real tick. Natural expiry (1 -> 0) still counts.
+	if c.started && t == 0 && c.tick > 1 {
+		r.time = t // the reported time stays the raw timer value
+		return
+	}
 	if c.awaitCountdown {
-		if t != r.time {
+		if t != c.tick {
 			c.phaseStart = t
 			c.awaitCountdown = false
 		}
 		r.time = t
+		c.tick = t
 		return
 	}
 	// a lone 0 before the first countdown is a placeholder, not a countdown
 	if !c.started && t == 0 {
 		r.time = t
+		c.tick = t
 		return
 	}
 	// a new countdown starts with the first timer value or whenever the timer jumps up
-	if !c.started || t > r.time+1 {
+	if !c.started || t > c.tick+1 {
 		switch {
 		case c.phase == ActionPhase || c.phase == PostPlantPhase:
+			if c.phase == ActionPhase {
+				c.jumpedToPost = true
+			}
 			// the only countdown after the action phase is the defuser timer
 			c.phaseElapsed = r.elapsed()
 			c.phase = PostPlantPhase
@@ -63,6 +87,7 @@ func (r *Reader) updateClock(t float64) {
 		c.started = true
 	}
 	r.time = t
+	c.tick = t
 }
 
 // startPostPlant switches the clock to the post-plant phase when the defuser was planted.
@@ -75,7 +100,8 @@ func (r *Reader) startPostPlant() {
 	}
 	c.phaseElapsed = r.elapsed()
 	c.phase = PostPlantPhase
-	c.phaseStart = r.time
+	c.phaseStart = c.tick
+	c.jumpedToPost = false
 	c.awaitCountdown = true
 }
 
@@ -83,9 +109,9 @@ func (r *Reader) startPostPlant() {
 // The value is negative during the preparation phase.
 func (r *Reader) elapsed() float64 {
 	if r.clock.phase == PrepPhase {
-		return -r.time
+		return -r.clock.tick
 	}
-	return r.clock.phaseElapsed + r.clock.phaseStart - r.time
+	return r.clock.phaseElapsed + r.clock.phaseStart - r.clock.tick
 }
 
 // stamp sets the round phase and monotonic time of u to the current clock.
@@ -95,6 +121,28 @@ func (r *Reader) stamp(u *MatchUpdate) {
 	}
 	u.Phase = r.clock.phase
 	u.ElapsedSeconds = r.elapsed()
+}
+
+// noteTick remembers the last action-phase tick. It runs after the raw time is set.
+func (r *Reader) noteTick() {
+	if r.clock.started && r.clock.phase == ActionPhase && r.clock.tick == r.time {
+		r.clock.last = actionTick{true, r.time, r.timeRaw, r.elapsed()}
+	}
+}
+
+// stampPlantComplete stamps a plant completion. The timer can jump up to the defuser
+// countdown before the packet that completes the plant is read; the plant still happened
+// at the last action-phase tick.
+func (r *Reader) stampPlantComplete(u *MatchUpdate) {
+	c := &r.clock
+	if c.jumpedToPost && c.phase == PostPlantPhase && c.last.valid {
+		u.Phase = ActionPhase
+		u.Time = c.last.timeRaw
+		u.TimeInSeconds = c.last.time
+		u.ElapsedSeconds = c.last.elapsed
+		return
+	}
+	r.stamp(u)
 }
 
 // backfillLeadingUpdates gives events recorded before the clock started the phase and
@@ -120,6 +168,7 @@ func readTime(r *Reader) error {
 	}
 	r.updateClock(float64(time))
 	r.timeRaw = fmt.Sprintf("%d:%02d", time/60, time%60)
+	r.noteTick()
 	return nil
 }
 
@@ -133,6 +182,7 @@ func readY7Time(r *Reader) error {
 		}
 		r.updateClock(seconds)
 		r.timeRaw = parts[0]
+		r.noteTick()
 		return nil
 	}
 	minutes, err := strconv.Atoi(parts[0])
@@ -145,6 +195,7 @@ func readY7Time(r *Reader) error {
 	}
 	r.updateClock(float64((minutes * 60) + seconds))
 	r.timeRaw = time
+	r.noteTick()
 	return nil
 }
 
