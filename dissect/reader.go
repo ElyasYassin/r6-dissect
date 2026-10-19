@@ -183,20 +183,50 @@ type match struct {
 
 func (r *Reader) worker(start int, end int, wg *sync.WaitGroup, matches chan<- match) {
 	defer wg.Done()
+	// indexes[j] is the number of bytes of query j matched so far. Only queries
+	// with a partial match (active) or whose first byte matches the current byte
+	// are compared, which is equivalent to comparing every query at every byte.
 	indexes := make([]int, len(r.queries))
+	var startsWith [256][]int
+	for j, query := range r.queries {
+		startsWith[query[0]] = append(startsWith[query[0]], j)
+	}
+	active := make([]int, 0, len(r.queries))
+	next := make([]int, 0, len(r.queries))
+	started := make([]int, 0, len(r.queries))
 	log.Debug().Int("start", start).Int("end", end).Msg("worker")
 	for i := start; i <= end; i++ {
-		for j, query := range r.queries {
-			if r.b[i] == query[indexes[j]] {
+		c := r.b[i]
+		started = started[:0]
+		for _, j := range startsWith[c] {
+			if indexes[j] == 0 {
+				started = append(started, j)
+			}
+		}
+		next = next[:0]
+		for _, j := range active {
+			query := r.queries[j]
+			if c == query[indexes[j]] {
 				indexes[j]++
 				if indexes[j] == len(query) {
 					indexes[j] = 0
 					matches <- match{i, j}
+				} else {
+					next = append(next, j)
 				}
 			} else {
 				indexes[j] = 0
 			}
 		}
+		for _, j := range started {
+			if len(r.queries[j]) == 1 {
+				matches <- match{i, j}
+				continue
+			}
+			indexes[j] = 1
+			next = append(next, j)
+		}
+		active, next = next, active
 	}
 }
 
