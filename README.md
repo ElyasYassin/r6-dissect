@@ -88,7 +88,7 @@ See example outputs in [/examples](https://github.com/redraskal/r6-dissect/tree/
 | Field | Description |
 |---|---|
 | `spawn` | The attacker spawn location. For defenders, this is the defended site. |
-| `startingRoom` | The room a defender was in when the round started (Y9S1+). |
+| `startingRoom` | The room a defender was in when the round started (Y9S1–Y11S2; Y11S3 replays no longer contain per-player room names). |
 
 ### Match feedback fields
 | Field | Description |
