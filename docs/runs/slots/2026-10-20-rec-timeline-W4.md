@@ -33,7 +33,7 @@ Raw output: the mutant runs were captured under `/tmp/claude-1001/w4-mutants.txt
 ## Candidates
 
 ### C-W4-1 plan test series contradicts the plan's jump rule
-- Observed: the plan's TestMsClock_Phases feeds 179880 then 45000 and expects a PostPlant phase, but 45000 is below the previous sample, so the rising-jump rule yields no phase. `go test` with the plan series printed two phases.
+- Observed: the plan's TestMsClock_Phases feeds 179880 then 45000 and expects a PostPlant phase, but 45000 is below the previous sample, so the rising-jump rule yields no phase. Running the plan series printed only Prep and Action phases.
 - Also the plan's `at(25)` expects the sample at tick 29. The test here uses a rise from 12000 to 45000 (BaseMs 167917) and `at(30)`.
 - Acceptance: the plan text is corrected, or the phase rule is extended to detect drops.
 - Verified-against: 37c3992
@@ -45,4 +45,18 @@ Raw output: the mutant runs were captured under `/tmp/claude-1001/w4-mutants.txt
 
 ## Observations
 
-Mutating these append sites to a bare append kept the offset test green, because no valid fixture reaches them: the first site in `dissect/feedback.go` (`r.addUpdate(u)` inside the loop), the first two in `dissect/defuse.go`, and the round-end inference in `dissect/time.go`.
+Mutating the append sites below to a bare append kept the offset test green where the result is 0, because no valid fixture reaches that site. The number is the count of failing lines.
+
+```
+=== feedback.go:152	0
+=== feedback.go:213	105
+=== feedback.go:249	31
+=== player.go:225	18
+=== player.go:263	15
+=== defuse.go:228	0
+=== defuse.go:270	0
+=== defuse.go:366	7
+=== defuse.go:415	6
+=== defuse.go:450	4
+=== time.go:297	0
+```
