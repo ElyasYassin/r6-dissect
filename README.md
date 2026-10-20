@@ -195,6 +195,8 @@ lib.dissect_free(ptr)
 | `tlv <round.rec> [--limit N]` | One line per TLV token with tick, offset, op, object, field and value or target. |
 | `movement <round.rec> [--limit N] [--no-payload]` | One line per movement record with tick, entity, tag and payload hex. |
 | `coverage <round.rec>` | A single line with layout, TLV and movement statistics. |
+| `join <round.rec>` | One line per timeline event with seq, type, actor, target, tick, elapsed and round-clock milliseconds, phase and status. Fails on layouts the timeline cannot read. |
+| `graph <round.rec>` | One line per ownership edge in tick order, with `ownerPlayer` set when the owner belongs to a player. Fails on layouts the timeline cannot read. |
 
 Exit codes are 0 on success, 2 on a usage error and 1 on a runtime error. A failed run prints one line to stderr and nothing to stdout.
 

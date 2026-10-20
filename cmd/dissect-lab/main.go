@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-const commandList = "segments, tlv, movement, coverage"
+const commandList = "segments, tlv, movement, coverage, join, graph"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -30,6 +30,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		cmd = (*lab).movement
 	case "coverage":
 		cmd = (*lab).coverage
+	case "join":
+		cmd = (*lab).join
+	case "graph":
+		cmd = (*lab).graph
 	default:
 		fmt.Fprintf(stderr, "dissect-lab: unknown command %q (want %s)\n", args[0], commandList)
 		return 2

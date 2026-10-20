@@ -314,3 +314,131 @@ func (l *lab) coverage(args []string) error {
 		},
 	})
 }
+
+// readTimeline opens one round file, builds its timeline and returns it with the decompressed buffer.
+func readTimeline(path string) ([]byte, *dissect.Timeline, error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if st.IsDir() {
+		return nil, nil, usageError("dissect-lab works on one round file")
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer f.Close()
+	zerolog.SetGlobalLevel(zerolog.Disabled)
+	r, err := dissect.NewReader(f)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
+	}
+	r.EnableTimeline()
+	b := r.Data() // only available before Read
+	if err := r.Read(); !dissect.Ok(err) {
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
+	}
+	tl, err := r.Timeline()
+	if err != nil {
+		var te *dissect.TimelineError
+		if errors.As(err, &te) {
+			return nil, nil, fmt.Errorf("%s: timeline: %s", path, te.Reason)
+		}
+		return nil, nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return b, tl, nil
+}
+
+type joinLine struct {
+	Seq          int                `json:"seq"`
+	Type         string             `json:"type"`
+	Actor        string             `json:"actor,omitempty"`
+	Target       string             `json:"target,omitempty"`
+	Tick         uint32             `json:"tick"`
+	ElapsedMs    int64              `json:"elapsedMs"`
+	RoundClockMs uint32             `json:"roundClockMs"`
+	Phase        dissect.RoundPhase `json:"phase"`
+	Status       string             `json:"status"`
+}
+
+func (l *lab) join(args []string) error {
+	path, err := l.parse("join", args, nil)
+	if err != nil {
+		return err
+	}
+	_, tl, err := readTimeline(path)
+	if err != nil {
+		return err
+	}
+	for _, e := range tl.Events {
+		if err := l.emit(joinLine{
+			Seq: e.Seq, Type: e.Type.String(), Actor: e.Actor, Target: e.Target, Tick: e.Tick, ElapsedMs: e.ElapsedMs,
+			RoundClockMs: e.RoundClockMs, Phase: e.Phase, Status: e.Status,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type graphLine struct {
+	Tick        uint32 `json:"tick"`
+	Owner       string `json:"owner"`
+	Field       string `json:"field"`
+	Target      string `json:"target"`
+	Class       string `json:"class"`
+	Index       uint32 `json:"index"`
+	HasIndex    bool   `json:"hasIndex"`
+	OwnerPlayer string `json:"ownerPlayer,omitempty"`
+}
+
+func (l *lab) graph(args []string) error {
+	path, err := l.parse("graph", args, nil)
+	if err != nil {
+		return err
+	}
+	b, tl, err := readTimeline(path)
+	if err != nil {
+		return err
+	}
+	lay, err := wire.Walk(b)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	players := map[string]string{}
+	for _, en := range tl.Entities {
+		if en.Kind == "player" && en.Owner != "" {
+			players[en.ID] = en.Owner
+		}
+	}
+	g := wire.NewGraph()
+	var edges []wire.Edge
+	_, err = wire.DecodeTLV(b, lay, func(tick uint32, t wire.Token) error {
+		g.Add(tick, t)
+		if t.Op.IsRef() && !t.Target.IsNull() {
+			edges = append(edges, wire.Edge{Owner: t.Object, Field: t.Field, Target: t.Target, Class: t.Class,
+				Index: t.Index, HasIndex: t.HasIndex, Tick: tick})
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	isPlayer := func(h wire.Handle) bool { _, ok := players[h.String()]; return ok }
+	for _, e := range edges {
+		ln := graphLine{
+			Tick: e.Tick, Owner: e.Owner.String(), Field: e.Field.String(), Target: e.Target.String(),
+			Class: e.Class.String(), Index: e.Index, HasIndex: e.HasIndex,
+		}
+		if isPlayer(e.Owner) {
+			ln.OwnerPlayer = players[e.Owner.String()]
+		} else if h, ok := g.Ancestor(e.Owner, isPlayer); ok {
+			ln.OwnerPlayer = players[h.String()]
+		}
+		if err := l.emit(ln); err != nil {
+			return err
+		}
+	}
+	return nil
+}
