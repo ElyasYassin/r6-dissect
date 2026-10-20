@@ -144,6 +144,10 @@ func TestRun_Errors(t *testing.T) { // Review Focus 5
 		{[]string{"segments"}, 2, "missing"},
 		{[]string{"segments", "/nonexistent.rec"}, 1, "nonexistent"},
 		{[]string{"segments", t.TempDir()}, 2, "one round file"},
+		{[]string{"tlv", "--limit", "x", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "-limit"},
+		{[]string{"movement", "--bogus", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "bogus"},
+		{[]string{"tlv", "--limit", "-1", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "limit"},
+		{[]string{"movement", "--limit", "-1", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "limit"},
 	} {
 		var out, errb bytes.Buffer
 		code := run(tc.args, &out, &errb)

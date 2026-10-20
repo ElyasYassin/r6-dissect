@@ -16,8 +16,7 @@ import (
 )
 
 type lab struct {
-	out    bytes.Buffer
-	stderr io.Writer
+	out bytes.Buffer
 }
 
 // errLimit stops a decode once --limit lines are written.
@@ -31,19 +30,19 @@ func (l *lab) emit(v any) error {
 // parse handles one subcommand's flags and returns the single path argument. Flags may precede or follow the path.
 func (l *lab) parse(name string, args []string, setup func(*flag.FlagSet)) (string, error) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(l.stderr)
+	fs.SetOutput(io.Discard) // the CLI prints one line itself; the flag package's own report and usage stay silent
 	if setup != nil {
 		setup(fs)
 	}
 	if err := fs.Parse(args); err != nil {
-		return "", usageError("bad flags")
+		return "", usageError(err.Error())
 	}
 	if fs.NArg() == 0 {
 		return "", usageError("missing <round.rec>")
 	}
 	path := fs.Arg(0)
 	if err := fs.Parse(fs.Args()[1:]); err != nil {
-		return "", usageError("bad flags")
+		return "", usageError(err.Error())
 	}
 	if fs.NArg() != 0 {
 		return "", usageError("expected one round file")
@@ -192,6 +191,9 @@ func (l *lab) tlv(args []string) error {
 	if err != nil {
 		return err
 	}
+	if limit < 0 {
+		return usageError("--limit must be 0 or more")
+	}
 	b, lay, err := loadLayout(path)
 	if err != nil {
 		return err
@@ -230,6 +232,9 @@ func (l *lab) movement(args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+	if limit < 0 {
+		return usageError("--limit must be 0 or more")
 	}
 	b, lay, err := loadLayout(path)
 	if err != nil {

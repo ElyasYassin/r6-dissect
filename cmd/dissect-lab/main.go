@@ -35,7 +35,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	// Output is buffered so that a failure after the first line still leaves stdout empty.
-	l := &lab{stderr: stderr}
+	l := &lab{}
 	err := cmd(l, args[1:])
 	if err != nil {
 		if u, ok := err.(usageError); ok {
