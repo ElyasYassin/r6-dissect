@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/redraskal/r6-dissect/dissect"
+	"github.com/redraskal/r6-dissect/dissect/wire"
 )
 
 func fixture(t *testing.T, season, name string) string {
@@ -246,6 +247,47 @@ func TestRun_Graph(t *testing.T) {
 	}
 	if n < 10 {
 		t.Errorf("27c08dca edges with ownerPlayer = %d", n)
+	}
+	// The line count equals an independent decode's edge count (ref tokens with a target).
+	if got, want := len(nonEmptyLines(out.String())), refEdges(t, fixture(t, "Y11S3", "custom_fortress_plant.rec")); got != want {
+		t.Errorf("graph lines = %d, independent edge count = %d", got, want)
+	}
+}
+
+// refEdges counts the tokens wire.Graph.Add records: ref ops with a non-null target.
+func refEdges(t *testing.T, path string) int {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	r, err := dissect.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := r.Data()
+	l, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	if _, err := wire.DecodeTLV(b, l, func(_ uint32, tk wire.Token) error {
+		if tk.Op.IsRef() && !tk.Target.IsNull() {
+			n++
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestRun_GraphLegacy(t *testing.T) {
+	var out, errb bytes.Buffer
+	code := run([]string{"graph", fixture(t, "Y8S1", "quick_1.rec")}, &out, &errb)
+	if code != 1 || out.Len() != 0 || len(nonEmptyLines(errb.String())) != 1 || !strings.Contains(errb.String(), "no TLV channels") {
+		t.Errorf("code=%d out=%q err=%q", code, clip(out.String()), errb.String())
 	}
 }
 
