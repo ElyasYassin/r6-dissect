@@ -36,3 +36,44 @@ func TestTrades_SkipsTeamKill(t *testing.T) {
 		t.Fatalf("want one trade [d1→a1, a2→d1] without the teamkill, got %+v", trades)
 	}
 }
+
+func threeVThree() Header {
+	return Header{
+		Teams: [2]Team{{Role: Attack}, {Role: Defense, Won: true}},
+		Players: []Player{
+			{Username: "a1", TeamIndex: 0}, {Username: "a2", TeamIndex: 0}, {Username: "a3", TeamIndex: 0},
+			{Username: "d1", TeamIndex: 1}, {Username: "d2", TeamIndex: 1}, {Username: "d3", TeamIndex: 1},
+		},
+	}
+}
+
+func statsOf(stats []PlayerRoundStats, username string) PlayerRoundStats {
+	for _, s := range stats {
+		if s.Username == username {
+			return s
+		}
+	}
+	return PlayerRoundStats{}
+}
+
+// an opponent who dies without a killer during the clutch was still part of it.
+func TestPlayerStats_OneVxMatchesClutch(t *testing.T) {
+	r := &Reader{Header: threeVThree(), MatchFeedback: []MatchUpdate{
+		kill("d1", "a1", 10), kill("a2", "d2", 20), kill("a3", "d3", 25),
+		{Type: Death, Username: "a2", Phase: ActionPhase, ElapsedSeconds: 30},
+		kill("d1", "a3", 40),
+	}}
+	s := statsOf(r.PlayerStats(), "d1")
+	if s.ClutchDetail == nil || s.ClutchDetail.OpponentsAlive != 2 || s.OneVx != 2 {
+		t.Fatalf("want 1vX 2 and opponentsAlive 2, got 1vX %d, clutch %+v", s.OneVx, s.ClutchDetail)
+	}
+}
+
+func TestPlayerStats_OneVxNoClutchFallback(t *testing.T) {
+	r := &Reader{Header: threeVThree(), MatchFeedback: []MatchUpdate{kill("d1", "a1", 10)}}
+	for _, s := range r.PlayerStats() {
+		if s.OneVx != 0 || s.ClutchDetail != nil {
+			t.Fatalf("no clutch: want 1vX 0 for %s, got %d, clutch %+v", s.Username, s.OneVx, s.ClutchDetail)
+		}
+	}
+}

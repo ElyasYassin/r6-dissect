@@ -215,6 +215,10 @@ func (r *Reader) PlayerStats() []PlayerRoundStats {
 				oneVx++
 			}
 		}
+		if clutch != nil {
+			// the opponents faced when the clutch started, including any who later died without a killer
+			oneVx = clutch.OpponentsAlive
+		}
 		stats[lastWinnerStanding].OneVx = oneVx
 		if oneVx > 0 && clutch != nil {
 			stats[lastWinnerStanding].ClutchDetail = clutch
