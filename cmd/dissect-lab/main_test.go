@@ -134,13 +134,21 @@ func TestRun_Coverage(t *testing.T) {
 }
 
 func TestRun_Errors(t *testing.T) { // Review Focus 5
-	for _, args := range [][]string{
-		{}, {"bogus", "x.rec"}, {"segments"}, {"segments", "/nonexistent.rec"}, {"segments", t.TempDir()},
+	for _, tc := range []struct {
+		args []string
+		code int
+		msg  string
+	}{
+		{[]string{}, 2, "usage"},
+		{[]string{"bogus", "x.rec"}, 2, "unknown command"},
+		{[]string{"segments"}, 2, "missing"},
+		{[]string{"segments", "/nonexistent.rec"}, 1, "nonexistent"},
+		{[]string{"segments", t.TempDir()}, 2, "one round file"},
 	} {
 		var out, errb bytes.Buffer
-		code := run(args, &out, &errb)
-		if code == 0 || out.Len() != 0 || len(nonEmptyLines(errb.String())) != 1 {
-			t.Errorf("%v: code=%d out=%q err=%q", args, code, out.String(), errb.String())
+		code := run(tc.args, &out, &errb)
+		if code != tc.code || out.Len() != 0 || len(nonEmptyLines(errb.String())) != 1 || !strings.Contains(errb.String(), tc.msg) {
+			t.Errorf("%v: code=%d out=%q err=%q", tc.args, code, out.String(), errb.String())
 		}
 	}
 }
