@@ -45,9 +45,9 @@ Both the initial state (region 2) and the tick stream (region 6) use one grammar
 **Frame (tick stream):**
 
 ```
-00*12  u32 tick  u32 len  u32 0  0x04  block+        ; len counts from `tick` to the frame end
-block := u32 C  payload(C)                            ; one or two blocks per frame
-payload := 0x18 handle8 field4 u32 n  token*          ; batch header on the world object ed1505f0, field 1784e409
+envelope := u32 tick  u32 len  u32 0  0x04  slot slot slot slot   ; exactly four slots (amended 2026-10-20)
+slot     := u32 C  bytes(C)                                        ; C may be 0: an empty slot
+bytes(C>0) := 0x18 handle8 field4 u32 n  token{n}                  ; batch header, n = tokens that follow; the first slot's batch is on the world object, field 1784e409
 ```
 
 **Tokens:**
@@ -91,6 +91,8 @@ Kill packets joined to their frame (R01): `FallacyAsTR.NKG → drew.DD` at tick 
 | `A6B10188` u64 | 5 objects | `2461366787` = Blitz roleImage | operator/role asset ids |
 | `3EAAD30A` u64 | class `b430ebc4`, 15 objects | values are movement-stream handles | bridge to movement entities (only 25 of 507 handles so far) |
 
+Amended 2026-10-20 (PR #5 review, verified on every TLV envelope of the five Y11S2/Y11S3 fixtures): the "12 zero bytes" trailer described above is three empty slots, "8 zero bytes" are two, and a zero word between blocks is one — every envelope has exactly four length slots (shape counts BZZZ/BBZZ/BBZB/BZZB/ZBZZ: early_plant 2586/22/9/2/0, solid_snake 4359/28/11/0/0, clubhouse 5120/25/10/0/0, fortress 6087/25/10/1/0, lair 5423/24/10/0/1). Opcodes seen on the fixtures: 18, 1a, 1b, 1e, 22, 23, 26; 1f and 27 are unseen. The initial state (region 2) is NOT envelope-framed: it sits in the prelude before the first channel header, and the username field `07949bdc` occurs only there (ten tokens per round), so a channel-only decoder never sees usernames (run-log candidate C-RT-9).
+
 ## 4. Movement stream (observed)
 
 ```
@@ -99,7 +101,7 @@ record := handle8  u32 L  tag4  payload(L-4)
 tag    := 60|61|62|63 73 85 fe
 ```
 
-R01: 6,320 groups, 213,613 records, ticks 1 → 47,358 monotonic (deltas 6–10, the same tick counter as the TLV frames), 507 distinct entity handles, 0.2 % of the region skipped by the probe (two resyncs). R05: 6,048 groups, 223,380 records, 559 handles. Other match R01: 6,813 groups, 273,804 records, 520 handles. Ten handles are present from the initial snapshot and update in nearly every group (5,000–6,100 records each) — almost certainly the ten player pawns; another ten appear at ticks ≈10,460–10,490 (around the action-phase start) — likely drones.
+R01: 6,320 groups, 213,613 records, ticks 1 → 47,358 monotonic (deltas 6–10, the same tick counter as the TLV frames), 507 distinct entity handles, 0.2 % of the region skipped by the probe (two resyncs). R05: 6,048 groups, 223,380 records, 559 handles. Other match R01: 6,813 groups, 273,804 records, 520 handles. Ten handles are present from the initial snapshot and update in most groups (5,000–6,100 records each in R01) — hypothesised to be the ten player pawns (unverified; see the attribution gap); another ten appear at ticks ≈10,460–10,490 (around the action-phase start) — likely drones. Amended 2026-10-20 (PR #4 review): "nearly every group" overstates it — on every fixture only 4 entities appear in ≥ 90 % of groups (fortress top-12 record counts 6127, 6126, 6043, 5780, 5575, 5574, 5574, 5316, 5086, 5084, 4902, 4902 of 6320 groups), consistent with pawns that stop updating at death; an entity appears at most once per group.
 
 The payload after the tag begins with a 2–4 byte presence mask (`40 04`, `30 01`, `fc 1f`, `b0 01` …) and the record length varies with the mask (36-byte records with mask `40 04` are the most common, 44 k of them). For some masks a float triple at payload offset 6 is a world position: pawn `5cc804f0` sits at (−67.20, 85.80, 27.00) through ticks 81–385, then moves to (−67.20, 85.36, 27.00) by tick 430 in sub-metre steps. Decoding the mask → field layout is the main open research item for positions.
 

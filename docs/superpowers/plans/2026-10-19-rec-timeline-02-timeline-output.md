@@ -17,7 +17,7 @@
 - The timeline never fails a parse: on any timeline error the round JSON is written unchanged, the sidecar is **not** written, and the round JSON gains `"timelineError": {"reason": "<text>", "coverage": {...}}` (spec §5.4). `timelineError` is only present when `--timeline` was requested.
 - Sidecar path: `<dir>/<basename of the .rec without extension>.timeline.json`, `dir` created if missing (spec §5.4, my call recorded there).
 - `timeline.version` is `1`. Event `status` is `"observed"` for events read from a packet and `"derived"` for events the legacy code infers (round-end `DefuserDisableComplete`, a defuser actor resolved from the +100 score bonus or the last-alive fallback).
-- Commit messages as in plan 01, with the `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` trailer.
+- Commit messages as in plan 01 (trailer rule: none on worker commits, the orchestrator's carry `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`).
 
 ## Review Focus
 

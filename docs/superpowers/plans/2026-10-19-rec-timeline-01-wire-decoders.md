@@ -18,7 +18,7 @@
 - Hex spellings follow the findings doc: handles, field ids and class ids print as lowercase hex **in file byte order** (e.g. object `a07305f000000000`, field `1f07efc9`).
 - Decoders never panic on malformed input: every bounds check returns `ok=false` or a typed error; coverage is reported, never assumed.
 - Acceptance on every valid fixture (two Y11S2 already in the repo plus the three Y11S3 added in Task 1): bytes outside any channel header or envelope ≤ 0.5 %; TLV unknown opcodes = 0; movement bytes skipped ≤ 0.3 % of the movement channels.
-- Commit messages use the fork's conventional style (`feat:`, `fix:`, `test:`, `docs:`) and end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Commit messages use the fork's conventional style (`feat:`, `fix:`, `test:`, `docs:`). Trailer rule (lane convention, amended 2026-10-20): commits made by dispatched workers through `/ship` carry no `Co-Authored-By` trailer; commits made by the orchestrator end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
 ## Review Focus
 
