@@ -102,9 +102,9 @@ func TestMsClock_IgnoresOtherObjects(t *testing.T) {
 	}
 }
 
-func openFixtureReader(t *testing.T, name string) *Reader {
+func openRec(t *testing.T, path string) *Reader {
 	t.Helper()
-	f, err := os.Open(filepath.Join("test", "data", "replays", "valid", "Y11S3", name))
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,6 +114,11 @@ func openFixtureReader(t *testing.T, name string) *Reader {
 		t.Fatal(err)
 	}
 	return r
+}
+
+func openFixtureReader(t *testing.T, name string) *Reader {
+	t.Helper()
+	return openRec(t, filepath.Join("test", "data", "replays", "valid", "Y11S3", name))
 }
 
 func TestMsClock_Fixture(t *testing.T) {
@@ -143,21 +148,24 @@ func TestMsClock_Fixture(t *testing.T) {
 	t.Logf("gameState=%s samples=%d phases=%+v", c.gameState, len(c.samples), ph)
 }
 
+// Every MatchFeedback entry of every valid fixture must carry a buffer offset, so a listener
+// that appends directly instead of calling addUpdate is caught.
 func TestAddUpdate_OffsetsStamped(t *testing.T) {
-	for _, name := range []string{"custom_fortress_plant.rec", "custom_lair_plant_stop.rec", "custom_clubhouse_short.rec"} {
-		r := openFixtureReader(t, name)
+	recs, err := filepath.Glob(filepath.Join("test", "data", "replays", "valid", "*", "*.rec"))
+	if err != nil || len(recs) == 0 {
+		t.Fatalf("fixtures: %v %d", err, len(recs))
+	}
+	for _, p := range recs {
+		r := openRec(t, p)
 		if err := r.Read(); err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if len(r.MatchFeedback) == 0 {
-			t.Fatalf("%s: no feedback", name)
+			t.Fatalf("%s: %v", p, err)
 		}
 		for i, u := range r.MatchFeedback {
 			if u.offset == 0 {
-				t.Errorf("%s: MatchFeedback[%d] (%v) has no offset", name, i, u.Type)
+				t.Errorf("%s: MatchFeedback[%d] (%v) has no offset", p, i, u.Type)
 			}
 			if u.offset == -1 && !u.derived {
-				t.Errorf("%s: MatchFeedback[%d] has offset -1 but is not derived", name, i)
+				t.Errorf("%s: MatchFeedback[%d] has offset -1 but is not derived", p, i)
 			}
 		}
 	}
