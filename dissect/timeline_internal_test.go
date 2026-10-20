@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	wire "github.com/redraskal/r6-dissect/dissect/wire"
@@ -205,4 +206,38 @@ func TestTimeline_CorruptTLVIsTimelineError(t *testing.T) {
 	if tl != nil || !errors.As(err, &te) || te.Coverage == nil || te.Coverage.UnplacedFraction <= 0.005 {
 		t.Fatalf("%v %+v", err, te)
 	}
+}
+
+func TestTimeline_VersionOutsideRange(t *testing.T) {
+	read := func(t *testing.T, mutate func(*Reader)) (*Timeline, error) {
+		t.Helper()
+		f, err := os.Open(fortressFixture)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		r, err := NewReader(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mutate(r)
+		r.EnableTimeline()
+		if err := r.Read(); !Ok(err) {
+			t.Fatal(err)
+		}
+		return r.Timeline()
+	}
+	t.Run("pre-Y11S2 voids the timeline", func(t *testing.T) {
+		tl, err := read(t, func(r *Reader) { r.Header.CodeVersion = Y10S1 })
+		var te *TimelineError
+		if tl != nil || !errors.As(err, &te) || !strings.Contains(te.Reason, "unsupported version") {
+			t.Fatalf("tl=%v err=%v", tl, err)
+		}
+	})
+	t.Run("control: unmodified fixture builds", func(t *testing.T) {
+		tl, err := read(t, func(*Reader) {})
+		if err != nil || tl == nil {
+			t.Fatalf("tl=%v err=%v", tl, err)
+		}
+	})
 }

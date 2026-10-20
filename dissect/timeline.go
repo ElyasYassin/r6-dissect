@@ -166,6 +166,9 @@ func buildTimeline(r *Reader) (*Timeline, *TimelineError) {
 	if err != nil || len(l.ChannelsOf(wire.PayloadTLV)) == 0 {
 		return nil, &TimelineError{Reason: "no TLV channels (legacy or unsupported layout)"}
 	}
+	if r.Header.CodeVersion < Y11S2 {
+		return nil, &TimelineError{Reason: fmt.Sprintf("unsupported version %s (code %d): the timeline needs Y11S2 or later", r.Header.GameVersion, r.Header.CodeVersion)}
+	}
 	idx := newTickIndex(l)
 	if len(idx.spans) == 0 {
 		return nil, &TimelineError{Reason: "no TLV envelopes"}

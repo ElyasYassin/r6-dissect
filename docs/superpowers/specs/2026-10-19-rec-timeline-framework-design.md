@@ -119,7 +119,7 @@ Added to the per-round JSON under `timeline` when `--timeline` is passed *(my ca
 ```
 
 - `elapsedMs` is derived from `roundClockMs` and the phase table (same semantics as today's `elapsedSeconds`, exact).
-- Event types v1: the existing 13 plus `PhaseChange`. Candidates gated on verification: `HealthChange`, `AmmoChange`/`ShotFired`, `GadgetDeploy`, `GadgetDestroy`, `Reinforce`, `Barricade`, `DroneDeploy`, `DroneDestroy`, `SpectateTarget`.
+- Event types v1: the existing 13. Phase changes are delivered as `clock.phases` (tick and `roundClockMs` per phase), not as `events` entries, because `events` maps one-to-one onto `matchFeedback` (amended 2026-10-20, plan 02 parity rule). Candidates gated on verification: `HealthChange`, `AmmoChange`/`ShotFired`, `GadgetDeploy`, `GadgetDestroy`, `Reinforce`, `Barricade`, `DroneDeploy`, `DroneDestroy`, `SpectateTarget`.
 - `positions` are downsampled to 2 Hz in the JSON *(my call)*; full-rate transforms are available through `dissect-lab movement --decode` and are not stored by R6Stats in v1.
 - R6Stats stores `events` in a new `round_timeline_event` table (keeps `round_event` for the 13 legacy types), `positions` in `round_position_sample`, and reads `status` to decide what to show.
 
@@ -154,7 +154,7 @@ Worked example (first targets):
 | M | Deliverable | Acceptance |
 |---|-------------|------------|
 | M1 | `dissect/wire` container walker + TLV decoder + movement group decoder; `dissect-lab segments/tlv/movement/coverage`; 3 new Y11S3 fixtures | ≤ 0.5 % of bytes outside channel headers and envelopes, 0 unknown TLV opcodes, ≤ 0.3 % movement bytes skipped on the Y11S3 fixtures **and** the two Y11S2 fixtures already in the repo (the TLV token layout is documented in `loadout.go` as verified back to Y8S1, so older versions are best-effort, not gated); existing tests green |
-| M2 | graph + clock + `join`; `--timeline` v1 (13 types + PhaseChange with tick/ms); legacy listeners re-implemented as field lookups behind a flag; R6Stats ingests `elapsedMs` | timeline reproduces `matchFeedback` exactly on all fixtures; ms clock verified |
+| M2 | graph + clock + `join`; `--timeline` v1 (13 types with tick/ms; phase changes in `clock.phases`); legacy listeners re-implemented as field lookups behind a flag; R6Stats ingests `elapsedMs` | timeline reproduces `matchFeedback` exactly on all fixtures; ms clock verified |
 | M3 | `catalog`, `verify`, `fields.yaml`, `unknowns.yaml`; first promoted semantic fields (health, ammo, gadget state) and their events in the sidecar; R6Stats shows verified events in the round feed and adds the derived per-round facts (damage dealt/taken, shots fired, utility deployed/destroyed) to `round_player` and the stats tables | each promoted field has a recorded verify run meeting its threshold; stats recomputable from stored timeline rows |
 | M4 | movement mask schema for position-bearing masks; pawn → player attribution (death-tick + spawn proximity + room-name transitions, Block B if found); `positions` at 2 Hz in the sidecar; R6Stats stores `round_position_sample` | ≥ 95 % of pawn records decoded to positions; attribution agrees across methods on every fixture |
 | M5 | spatial facts in the R6Stats stats engine (time to first contact, site presence %, entry attempts, trade distance and windows in ms, drone time) | design §8 of the R6Stats spec updated; stats recomputable from stored rows |

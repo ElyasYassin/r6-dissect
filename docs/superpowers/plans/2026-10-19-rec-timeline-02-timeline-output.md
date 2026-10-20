@@ -22,7 +22,7 @@
 ## Review Focus
 
 1. A round where the plant happens in the same tick frame as the ms-clock jump: the event keeps the legacy phase (`Action`) while the clock already shows post-plant; `elapsedMs` must still be computed from the action-phase base (pinned in Task 2's clock test and Task 3's parity tolerance).
-2. A round with no action phase (everyone leaves in prep, or a one-sided custom game): the clock has only a `Prep` phase; `elapsedMs` stays negative and `PhaseChange` has one entry (pinned in Task 2 with a synthetic series).
+2. A round with no action phase (everyone leaves in prep, or a one-sided custom game): the clock has only a `Prep` phase; `elapsedMs` stays negative and `clock.phases` has one entry (pinned in Task 2 with a synthetic series).
 3. Legacy replays (Y7–Y10) with `--timeline`: `Walk` finds no channels; the round JSON must carry `timelineError` and the CLI must exit 0 (pinned in Task 4 with the Y8S1 fixture).
 4. Events created at round end with no buffer offset (`roundEnd` inferences): they must take the last tick, not tick 0, so ordering by `(tick, seq)` matches `seq` order (pinned in Task 3 by asserting ticks are non-decreasing in `seq` order on every fixture).
 5. A match folder with `--timeline`: one sidecar per round file, names derived from each round's own file name, and the match JSON unchanged (pinned in Task 4).
@@ -255,7 +255,7 @@ func (m *MatchReader) Paths() []string
 ```
 
 Assembly rules (`buildTimeline(r *Reader) (*Timeline, *TimelineError)`, called from `Read` after `applyLoadouts` and before `r.b = nil`):
-1. `l, err := wire.Walk(r.b)`; if `err != nil` or `len(l.ChannelsOf(wire.PayloadTLV)) == 0` → `TimelineError{Reason: "no TLV channels (legacy or unsupported layout)"}`.
+1. `l, err := wire.Walk(r.b)`; if `err != nil` or `len(l.ChannelsOf(wire.PayloadTLV)) == 0` → `TimelineError{Reason: "no TLV channels (legacy or unsupported layout)"}`; then, if `r.Header.CodeVersion < Y11S2`, `TimelineError{Reason: "unsupported version …"}` (design §5.4, amended by the integration review).
 2. One pass of `wire.DecodeTLV` feeding `msClock.observe` and `wire.Graph.Add`; one `wire.DecodeMovement` pass for coverage only. Any `DecodeTLV` error (not per-block `Errors`) → `TimelineError`.
 3. Envelope index: a sorted slice of `(Start, End, Tick)` over all TLV envelopes; `tickAt(offset)` = binary search; an offset inside no envelope takes the tick of the nearest earlier envelope; `offset == -1` takes `TickLast`.
 4. Events: for `i, u := range r.MatchFeedback`: `tick = tickAt(u.offset)`; `phase, ms, elapsed, ok = clock.at(tick)`; if `!ok` (event before the first sample) use `ms = 0`, `elapsed = int64(u.ElapsedSeconds) * 1000`. **Phase is `u.Phase` (legacy), never the clock's.** When the clock's phase at `tick` differs from `u.Phase` (Review Focus 1, plant in the jump frame), recompute `elapsed` with the previous phase's base: `elapsed = prevPhase.BaseMs + int64(prevPhase.StartMs) - int64(clock.sampleBefore(tick-1))`. `Data` carries `headshot`, `teamKill`, `operator`, `message`, `dbnoBy`/`finishedBy`/`bleedOut` only when set. `Status = "derived"` if `u.derived`, else `"observed"`.
