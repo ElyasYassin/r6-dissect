@@ -142,8 +142,8 @@ func TestWalk_HeaderWithNonZeroU33(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 3 {
-		t.Fatalf("channels %+v", l.Channels)
+	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 3 || !l.Channels[0].HasHeader || l.Channels[0].ID != [8]byte{5} || l.Prelude != 0 {
+		t.Fatalf("prelude %d channels %+v", l.Prelude, l.Channels)
 	}
 	if len(l.Gaps) != 1 || l.Gaps[0].End-l.Gaps[0].Start != 12 || l.Gaps[0].End != len(b) {
 		t.Fatalf("gaps = %v want only the 12-byte terminator", l.Gaps)
