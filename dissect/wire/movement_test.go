@@ -135,9 +135,10 @@ func TestDecodeMovement_Fixtures(t *testing.T) {
 			if frac > 0.003 {
 				t.Errorf("bad bytes %.3f%%", frac*100)
 			}
-			// At least ten frequently present entities (the player pawns and a few
-			// more); only about four entities appear in nine of ten groups, so the
-			// floor pins "frequently present", not "always present".
+			// At least ten frequently present entities. Which entities they are is
+			// still a hypothesis (findings §4 reads them as pawns, unverified); only
+			// about four entities appear in nine of ten groups, so the floor pins
+			// "frequently present", not "always present".
 			var busy int
 			for _, n := range entities {
 				if n >= minBusy {
