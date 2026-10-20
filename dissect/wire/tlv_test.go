@@ -96,8 +96,8 @@ func TestDecodeBlock_EveryOpcode(t *testing.T) {
 	if got[8].Index != 7 || len(got[8].Value) != 2 {
 		t.Errorf("valueNamedIndexed fields: %+v", got[8])
 	}
-	if got[0].Offset != 0 || got[2].Offset != 1+8+4+4 {
-		t.Errorf("offsets %d %d", got[0].Offset, got[2].Offset)
+	if got[0].Offset != 0 || got[1].Offset != 17 || got[2].Offset != 24 {
+		t.Errorf("offsets %d %d %d", got[0].Offset, got[1].Offset, got[2].Offset)
 	}
 }
 
