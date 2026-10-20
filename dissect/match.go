@@ -15,9 +15,10 @@ import (
 )
 
 type MatchReader struct {
-	Root   *os.File
-	paths  []string
-	rounds []*Reader
+	Root     *os.File
+	paths    []string
+	rounds   []*Reader
+	timeline bool // build a timeline for every round reader
 
 	queries   [][]byte
 	listeners [][]func(r *Reader) error
@@ -67,6 +68,9 @@ func (m *MatchReader) read(i int) error {
 		return err
 	}
 	m.rounds[i] = r
+	if m.timeline {
+		r.EnableTimeline()
+	}
 	for i = 0; i < len(m.queries); i++ {
 		for _, listener := range m.listeners[i] {
 			r.Listen(m.queries[i], listener)

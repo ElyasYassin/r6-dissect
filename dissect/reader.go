@@ -46,6 +46,9 @@ type Reader struct {
 	Header                 Header             `json:"header"`
 	MatchFeedback          []MatchUpdate      `json:"matchFeedback"`
 	Scoreboard             Scoreboard
+	timelineEnabled        bool
+	timeline               *Timeline
+	timelineErr            *TimelineError
 }
 
 // NewReader decompresses in using zstd and
@@ -285,11 +288,14 @@ func (r *Reader) Read() (err error) {
 	if !r.readPartial {
 		n := len(r.MatchFeedback)
 		// a plant/disable still in progress when the round ends did not complete
-		r.stopDefuserRun()
+		r.stopDefuserRunAtRoundEnd()
 		r.roundEnd()
 		r.stampNew(n)
 		r.backfillLeadingUpdates()
 		r.applyLoadouts()
+		if r.timelineEnabled {
+			r.timeline, r.timelineErr = buildTimeline(r)
+		}
 	}
 	r.b = nil
 	return err
