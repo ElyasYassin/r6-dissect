@@ -49,6 +49,7 @@ func TestDecodeBlock_EveryOpcode(t *testing.T) {
 	h1, h2, h3 := h("a07305f0"), h("303b04f0"), h("111111f0")
 	blk := concat(
 		tlvBatch(h1, fid("1784e409"), 5),                                          // current = h1
+		tlvValue(fid("00000005"), []byte{1}),                                      // on h1 (batch set it)
 		tlvValueNamed(h2, fid("e58c06e9"), le32(2)),                               // current = h2
 		tlvValue(fid("a9c858d9"), nil),                                            // zero-length value on h2
 		tlvRefNamed(h1, fid("27c08dca"), h2, cid("b2216bf3")),                     // current = h2 (target)
@@ -66,7 +67,7 @@ func TestDecodeBlock_EveryOpcode(t *testing.T) {
 	want := []struct {
 		op  wire.Op
 		obj wire.Handle
-	}{{wire.OpBatch, h1}, {wire.OpValueNamed, h2}, {wire.OpValue, h2}, {wire.OpRefNamed, h1}, {wire.OpRef, h2},
+	}{{wire.OpBatch, h1}, {wire.OpValue, h1}, {wire.OpValueNamed, h2}, {wire.OpValue, h2}, {wire.OpRefNamed, h1}, {wire.OpRef, h2},
 		{wire.OpRefIndexed, h2}, {wire.OpValueIndexed, h1}, {wire.OpValueNamedIndexed, h3}, {wire.OpValue, h3}, {wire.OpRefNamedIndexed, h1},
 		{wire.OpValue, h1}, {wire.OpRefNamed, h2}, {wire.OpValue, h2}}
 	if len(got) != len(want) {
@@ -77,26 +78,26 @@ func TestDecodeBlock_EveryOpcode(t *testing.T) {
 			t.Errorf("token %d: got %v on %v, want %v on %v", i, got[i].Op, got[i].Object, w.op, w.obj)
 		}
 	}
-	if len(got[2].Value) != 0 {
+	if len(got[3].Value) != 0 {
 		t.Error("zero-length value not empty")
 	}
-	if !got[4].Target.IsNull() {
+	if !got[5].Target.IsNull() {
 		t.Error("ref 4 target not null")
 	}
-	if got[5].Index != 3 || !got[5].HasIndex || got[0].HasIndex {
+	if got[6].Index != 3 || !got[6].HasIndex || got[0].HasIndex {
 		t.Error("index fields wrong")
 	}
 	if got[0].Count != 5 {
 		t.Errorf("count %d", got[0].Count)
 	}
-	if got[3].Target != h2 || got[3].Class != cid("b2216bf3") || got[3].Field != fid("27c08dca") {
-		t.Errorf("refNamed fields: %+v", got[3])
+	if got[4].Target != h2 || got[4].Class != cid("b2216bf3") || got[4].Field != fid("27c08dca") {
+		t.Errorf("refNamed fields: %+v", got[4])
 	}
-	if got[7].Index != 7 || len(got[7].Value) != 2 {
-		t.Errorf("valueNamedIndexed fields: %+v", got[7])
+	if got[8].Index != 7 || len(got[8].Value) != 2 {
+		t.Errorf("valueNamedIndexed fields: %+v", got[8])
 	}
-	if got[0].Offset != 0 || got[1].Offset != 1+8+4+4 {
-		t.Errorf("offsets %d %d", got[0].Offset, got[1].Offset)
+	if got[0].Offset != 0 || got[2].Offset != 1+8+4+4 {
+		t.Errorf("offsets %d %d", got[0].Offset, got[2].Offset)
 	}
 }
 
