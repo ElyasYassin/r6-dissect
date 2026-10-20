@@ -33,10 +33,10 @@ type PlayerMatchStats struct {
 	HeadshotPercentage float64 `json:"headshotPercentage"`
 }
 
-// OpeningKill returns the first player to kill.
+// OpeningKill returns the first player to kill. Teamkills do not count.
 func (r *Reader) OpeningKill() MatchUpdate {
 	for _, a := range r.MatchFeedback {
-		if a.Type == Kill {
+		if a.Type == Kill && !a.TeamKill {
 			return a
 		}
 	}
@@ -53,14 +53,18 @@ func (r *Reader) OpeningDeath() MatchUpdate {
 	return MatchUpdate{}
 }
 
-// Trades returns KILL Activity pairs of trades.
+// Trades returns pairs of consecutive kills that are trades. Teamkills and other events
+// are not considered.
 func (r *Reader) Trades() [][]MatchUpdate {
 	trades := make([][]MatchUpdate, 0)
 	var previous = MatchUpdate{}
 	for _, a := range r.MatchFeedback {
+		if a.Type != Kill || a.TeamKill {
+			continue
+		}
 		var samePlayers = (previous.Target == a.Username || previous.Username == a.Target)
 		var withinThreshold = (a.ElapsedSeconds - previous.ElapsedSeconds) <= 3
-		if a.Type == Kill && samePlayers && withinThreshold {
+		if samePlayers && withinThreshold {
 			trades = append(trades, []MatchUpdate{previous, a})
 		}
 		previous = a
