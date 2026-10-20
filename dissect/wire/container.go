@@ -75,50 +75,57 @@ func (l Layout) ChannelsOf(kind PayloadKind) []Channel {
 // ErrNoEnvelopes is returned when the buffer holds no recognizable channel or envelope.
 var ErrNoEnvelopes = errors.New("wire: no channels or envelopes found")
 
-const (
-	channelHeaderLen = 45
-	// shortHeaderLen is the 28 bytes both header forms share plus one zero. The
-	// trailer channels (after the last game tick) carry this form: the 17 zero
-	// bytes of the full header are replaced by the first envelope's own words.
-	shortHeaderLen = 28
-)
+const channelHeaderLen = 45
 
-// ParseChannelHeaderAt reports whether a 45-byte channel header starts at p:
-// a free u32, 8 bytes that are zero except for an optional first byte, id8,
-// u32, u32 and 17 zero bytes.
-//
-// The leading u32 is 03 b9 00 00 in the Fortress round but 6b 98 00 00 in
-// others (it reads like the stream's last tick), so it is not matched, only
-// shaped: a non-zero low half and a zero high half. Byte 4 is 0a in one
-// channel and zero elsewhere. Walk only trusts a header that is also followed
-// by an envelope, another header or the end of the buffer (see headerAt).
-func ParseChannelHeaderAt(b []byte, p int) (id [8]byte, ok bool) {
-	if p < 0 || p > len(b)-channelHeaderLen {
-		return id, false
-	}
-	id, ok = headerBaseAt(b, p)
-	if !ok || !allZero(b[p+28:p+channelHeaderLen]) {
-		return id, false
-	}
-	return id, true
+// header is a parsed channel header.
+type header struct {
+	lead  uint32
+	count uint32 // the channel carries count-2 envelopes
+	id    [8]byte
 }
 
-// headerBaseAt checks the 28 bytes shared by both header forms.
-func headerBaseAt(b []byte, p int) (id [8]byte, ok bool) {
-	if p < 0 || p > len(b)-shortHeaderLen {
+// parseHeader checks the observed 45-byte header grammar at p:
+//
+//	off 0..3    u32 lead: the same for every header of a file, >= every tick
+//	off 4       free byte
+//	off 5..11   zero
+//	off 12..19  id8, not all zero
+//	off 20..23  free u32
+//	off 24      zero
+//	off 25..28  u32 count >= 2; count-2 envelopes follow
+//	off 29..32  zero
+//	off 33..36  free u32 (non-zero for some channels)
+//	off 37..44  zero
+//
+// The lead is a small number: a non-zero low half and a zero high half.
+func parseHeader(b []byte, p int) (h header, ok bool) {
+	if p < 0 || p > len(b)-channelHeaderLen {
+		return h, false
+	}
+	x := b[p : p+channelHeaderLen]
+	if (x[0] == 0 && x[1] == 0) || x[2] != 0 || x[3] != 0 || !allZero(x[5:12]) ||
+		x[24] != 0 || !allZero(x[29:33]) || !allZero(x[37:45]) {
+		return h, false
+	}
+	copy(h.id[:], x[12:20])
+	if h.id == ([8]byte{}) {
+		return h, false
+	}
+	h.lead = binary.LittleEndian.Uint32(x)
+	h.count = binary.LittleEndian.Uint32(x[25:])
+	return h, h.count >= 2
+}
+
+// ParseChannelHeaderAt reports whether a 45-byte channel header starts at p and
+// returns its id8. It checks the shape only; Walk also checks the chain of
+// envelopes behind the header, which is what tells a real header from a
+// header-shaped run of data.
+func ParseChannelHeaderAt(b []byte, p int) (id [8]byte, ok bool) {
+	h, ok := parseHeader(b, p)
+	if !ok {
 		return id, false
 	}
-	h := b[p : p+shortHeaderLen]
-	// A small number, so the upper half is zero and the lower half is not.
-	// This rejects float runs such as 00 00 80 3f.
-	if (h[0] == 0 && h[1] == 0) || h[2] != 0 || h[3] != 0 || !allZero(h[5:12]) {
-		return id, false
-	}
-	copy(id[:], h[12:20])
-	if id == ([8]byte{}) {
-		return id, false
-	}
-	return id, true
+	return h.id, true
 }
 
 // ParseEnvelopeAt parses u32 tick, u32 len, u32 zero, payload[len] at p.
@@ -164,130 +171,176 @@ func sniffPayload(p []byte) PayloadKind {
 	return PayloadUnknown
 }
 
-// headerAt finds a channel header at p and returns its length: the 45-byte
-// form, or the 29-byte trailer form (28 shared bytes, one zero, then an
-// envelope). Either must be followed by an envelope, another header or the end
-// of the buffer, which is how a header-shaped run inside float data is told
-// from a real header: it has none of these after it. The short form is much
-// less distinctive, so only callers standing exactly on an envelope boundary
-// (allowShort) accept it; scans over unknown bytes do not.
-func headerAt(b []byte, p int, allowShort bool) (id [8]byte, n int, ok bool) {
-	if id, ok = ParseChannelHeaderAt(b, p); ok {
-		q := p + channelHeaderLen
-		if q == len(b) {
-			return id, channelHeaderLen, true
-		}
-		if _, ok = ParseEnvelopeAt(b, q); ok {
-			return id, channelHeaderLen, true
-		}
-		if _, ok = ParseChannelHeaderAt(b, q); ok {
-			return id, channelHeaderLen, true
-		}
+// tickOK reports whether an envelope tick fits a channel: not after the lead
+// and not before the previous envelope.
+func tickOK(tick, last, lead uint32) bool { return tick <= lead && tick >= last }
+
+type envStatus int
+
+const (
+	envOK      envStatus = iota
+	envBad               // does not fit the channel: a gap starts here
+	envOverrun           // runs past the end of the buffer: the buffer was cut here
+)
+
+// nextEnvelope parses the envelope at q for a channel with the given lead whose
+// previous tick is last.
+func nextEnvelope(b []byte, q int, lead, last uint32) (Envelope, envStatus) {
+	if q > len(b)-12 {
+		return Envelope{}, envOverrun
 	}
-	if !allowShort {
-		return id, 0, false
+	tick := binary.LittleEndian.Uint32(b[q:])
+	n := int(binary.LittleEndian.Uint32(b[q+4:]))
+	if binary.LittleEndian.Uint32(b[q+8:]) != 0 || n == 0 || !tickOK(tick, last, lead) {
+		return Envelope{}, envBad
 	}
-	if _, isEnv := ParseEnvelopeAt(b, p); isEnv {
-		// The short form's first 12 bytes read as an envelope whenever byte 4
-		// is non-zero, and so does every ordinary envelope's header-shaped
-		// prefix. A real envelope wins.
-		return id, 0, false
+	if n > len(b)-q-12 {
+		return Envelope{}, envOverrun
 	}
-	id, ok = headerBaseAt(b, p)
-	if !ok || p+shortHeaderLen >= len(b) || b[p+shortHeaderLen] != 0 {
-		return id, 0, false
-	}
-	q := p + shortHeaderLen + 1
-	e, ok := ParseEnvelopeAt(b, q)
+	e, _ := ParseEnvelopeAt(b, q)
+	return e, envOK
+}
+
+// isTerminator reports whether the 12 bytes at q are the buffer end: the lead
+// plus 8 zero bytes.
+func isTerminator(b []byte, q int, lead uint32) bool {
+	return q == len(b)-12 && binary.LittleEndian.Uint32(b[q:]) == lead && allZero(b[q+4:])
+}
+
+// sameLeadHeaderAt reports whether a header with the given lead starts at q.
+func sameLeadHeaderAt(b []byte, q int, lead uint32) bool {
+	h, ok := parseHeader(b, q)
+	return ok && h.lead == lead
+}
+
+// validFirstHeader accepts the header at p as the first of the buffer when its
+// count-2 envelopes parse with non-decreasing ticks no later than the lead and
+// a same-lead header or the terminator follows, or, for a cut buffer, when at
+// least two envelopes parse before the chain runs into the end of the buffer.
+func validFirstHeader(b []byte, p int) bool {
+	h, ok := parseHeader(b, p)
 	if !ok {
-		return id, 0, false
-	}
-	if e.End == len(b) {
-		return id, shortHeaderLen + 1, true
-	}
-	f, ok := ParseEnvelopeAt(b, e.End)
-	return id, shortHeaderLen + 1, ok && f.Tick >= e.Tick
-}
-
-// startsAt reports whether a channel header, or a sniffable envelope that passes
-// the same test as gap recovery, begins at p.
-func startsAt(b []byte, p int) bool {
-	if _, _, ok := headerAt(b, p, false); ok {
-		return true
-	}
-	e, ok := ParseEnvelopeAt(b, p)
-	return ok && sniffPayload(e.Payload) != PayloadUnknown && resyncAt(b, p, 0)
-}
-
-// resyncAt reports whether the walk may resume at p after a gap: a channel
-// header, or an envelope that is itself followed by a channel header, the end
-// of the buffer, or another envelope. Ticks are non-decreasing inside a
-// channel, so the envelope must not be older than minTick (the last tick the
-// open channel saw) and its follower must not be older than it. Requiring the
-// follower keeps a random 12-byte coincidence from ending a gap, and the tick
-// order keeps a coincidence that survives that from entering a channel.
-func resyncAt(b []byte, p int, minTick uint32) bool {
-	if _, _, ok := headerAt(b, p, false); ok {
-		return true
-	}
-	e, ok := ParseEnvelopeAt(b, p)
-	if !ok || e.Tick < minTick {
 		return false
 	}
-	if e.End == len(b) {
-		return true
+	q, last := p+channelHeaderLen, uint32(0)
+	for i := 0; i < int(h.count)-2; i++ {
+		e, st := nextEnvelope(b, q, h.lead, last)
+		switch st {
+		case envBad:
+			return false
+		case envOverrun:
+			return i >= 2
+		}
+		last, q = e.Tick, e.End
 	}
-	if _, _, ok := headerAt(b, e.End, true); ok {
-		return true
-	}
-	f, ok := ParseEnvelopeAt(b, e.End)
-	return ok && f.Tick >= e.Tick
+	return isTerminator(b, q, h.lead) || sameLeadHeaderAt(b, q, h.lead)
 }
 
-// Walk splits the decompressed buffer (dissect.Reader.Data()) into channels and envelopes.
-func Walk(b []byte) (Layout, error) {
-	l := Layout{Size: len(b)}
-	p := 0
-	for p < len(b) && !startsAt(b, p) {
-		p++
+// leadingRun finds the headerless channel directly in front of the first
+// header at first: the earliest start from which envelopes with non-decreasing
+// ticks no later than lead run exactly up to first. It returns -1 when none does.
+func leadingRun(b []byte, first int, lead uint32) int {
+	for s := 0; s < first; s++ {
+		q, last, n := s, uint32(0), 0
+		for q < first {
+			e, st := nextEnvelope(b[:first], q, lead, last)
+			if st != envOK {
+				break
+			}
+			last, q, n = e.Tick, e.End, n+1
+		}
+		if q == first && n > 0 {
+			return s
+		}
 	}
-	if p >= len(b) {
+	return -1
+}
+
+// Walk splits the decompressed buffer (dissect.Reader.Data()) into channels and
+// envelopes. Every header of a file shares one lead; a header says how many
+// envelopes follow it, and after them comes the next header or the terminator.
+// Where that does not hold the bytes become a gap, and the walk resumes at the
+// next same-lead header; envelopes are never picked out of a gap. A buffer with
+// no valid first header yields ErrNoEnvelopes.
+func Walk(b []byte) (Layout, error) {
+	first := -1
+	for p := 0; p <= len(b)-channelHeaderLen; p++ {
+		if validFirstHeader(b, p) {
+			first = p
+			break
+		}
+	}
+	if first < 0 {
 		return Layout{Size: len(b), Prelude: len(b)}, ErrNoEnvelopes
 	}
-	l.Prelude = p
+	h0, _ := parseHeader(b, first)
+	lead := h0.lead
+	l := Layout{Size: len(b), Prelude: first}
 
-	cur := -1 // index of the open channel
-	for p < len(b) {
-		if id, n, ok := headerAt(b, p, true); ok {
-			l.Channels = append(l.Channels, Channel{Start: p, End: p + n, HasHeader: true, ID: id})
-			cur = len(l.Channels) - 1
-			p += n
-			continue
-		}
-		if e, ok := ParseEnvelopeAt(b, p); ok {
-			if cur < 0 {
-				l.Channels = append(l.Channels, Channel{Start: p})
-				cur = 0
-			}
-			c := &l.Channels[cur]
-			if len(c.Envelopes) == 0 {
-				c.Kind = sniffPayload(e.Payload)
-			}
+	if s := leadingRun(b, first, lead); s >= 0 {
+		c := Channel{Start: s, End: first}
+		for q := s; q < first; {
+			e, _ := nextEnvelope(b, q, lead, 0)
 			c.Envelopes = append(c.Envelopes, e)
-			c.End = e.End
-			p = e.End
-			continue
+			q = e.End
 		}
-		start := p
-		var minTick uint32
-		if cur >= 0 {
-			if n := len(l.Channels[cur].Envelopes); n > 0 {
-				minTick = l.Channels[cur].Envelopes[n-1].Tick
+		c.Kind = sniffPayload(c.Envelopes[0].Payload)
+		l.Prelude = s
+		l.Channels = append(l.Channels, c)
+	}
+
+	p := first
+	for {
+		h, _ := parseHeader(b, p)
+		c := Channel{Start: p, End: p + channelHeaderLen, HasHeader: true, ID: h.id}
+		q, last := c.End, uint32(0)
+		gapAt := -1 // where a mismatch starts a gap, or -1
+		for i := 0; i < int(h.count)-2 && gapAt < 0; i++ {
+			e, st := nextEnvelope(b, q, h.lead, last)
+			switch st {
+			case envOK:
+				if len(c.Envelopes) == 0 {
+					c.Kind = sniffPayload(e.Payload)
+				}
+				c.Envelopes = append(c.Envelopes, e)
+				c.End, last, q = e.End, e.Tick, e.End
+			case envBad:
+				gapAt = q
+			case envOverrun:
+				l.Channels = append(l.Channels, c)
+				if q < len(b) {
+					l.Gaps = append(l.Gaps, Gap{Start: q, End: len(b)})
+				}
+				return l, nil
 			}
 		}
-		for p++; p < len(b) && !resyncAt(b, p, minTick); p++ {
+		l.Channels = append(l.Channels, c)
+		if gapAt < 0 {
+			switch {
+			case q == len(b):
+				return l, nil
+			case isTerminator(b, q, lead):
+				l.Gaps = append(l.Gaps, Gap{Start: q, End: len(b)})
+				return l, nil
+			case sameLeadHeaderAt(b, q, lead):
+				p = q
+				continue
+			}
+			gapAt = q
 		}
-		l.Gaps = append(l.Gaps, Gap{Start: start, End: p})
+		r := gapAt
+		for r <= len(b)-channelHeaderLen && !sameLeadHeaderAt(b, r, lead) {
+			r++
+		}
+		if r > len(b)-channelHeaderLen {
+			r = len(b)
+		}
+		if r > gapAt {
+			l.Gaps = append(l.Gaps, Gap{Start: gapAt, End: r})
+		}
+		if r == len(b) {
+			return l, nil
+		}
+		p = r
 	}
-	return l, nil
 }
