@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	wire "github.com/redraskal/r6-dissect/dissect/wire"
 )
@@ -440,4 +441,70 @@ func TestWalk_Truncated(t *testing.T) {
 			t.Logf("cuts=50 no_layout=%d last_gap_at_cut=%d", noLayout, withGap)
 		})
 	}
+}
+
+// F9: the buffer ends inside the next header. The channel before it keeps its
+// envelopes and the cut header becomes the last gap.
+func TestWalk_CutInsideSecondHeader(t *testing.T) {
+	h2 := channelHeaderN([8]byte{2}, lead, 1, 0)
+	b := concat(channelHeaderN([8]byte{1}, lead, 2, 0), envBytes(2, movePayload()), envBytes(3, movePayload()), h2[:20])
+	l, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 2 {
+		t.Fatalf("channels %+v", l.Channels)
+	}
+	if len(l.Gaps) != 1 || l.Gaps[0] != (wire.Gap{Start: l.Channels[0].End, End: len(b)}) {
+		t.Fatalf("gaps %v want [{%d %d}]", l.Gaps, l.Channels[0].End, len(b))
+	}
+}
+
+// F9 on a fixture: cut a few bytes into the header after the leading channel.
+func TestWalk_FortressCutAfterFirstChannel(t *testing.T) {
+	full := decompress(t, fixture(t, "Y11S3", "custom_fortress_plant.rec"))
+	b := full[:206601]
+	l, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Channels) == 0 || len(l.Channels[0].Envelopes) != 1025 {
+		t.Fatalf("channels %+v", l.Channels)
+	}
+	if n := len(l.Gaps); n == 0 || l.Gaps[n-1] != (wire.Gap{Start: 206581, End: 206601}) {
+		t.Fatalf("gaps %v", l.Gaps)
+	}
+}
+
+// F8: Walk stays linear on buffers built to make a restart loop quadratic.
+func TestWalk_LinearTime(t *testing.T) {
+	const limit = time.Second
+	run := func(t *testing.T, b []byte) {
+		t.Helper()
+		start := time.Now()
+		wire.Walk(b)
+		d := time.Since(start)
+		t.Logf("size=%d walk=%v", len(b), d)
+		if d >= limit {
+			t.Errorf("Walk took %v, limit %v", d, limit)
+		}
+	}
+	t.Run("envelope run before the header", func(t *testing.T) {
+		var b []byte
+		for i := 0; i < 40000; i++ {
+			b = append(b, envBytes(1, []byte{9})...)
+		}
+		b = concat(b, []byte{0xee}, channelHeaderN([8]byte{1}, lead, 2, 0), envBytes(2, movePayload()), envBytes(3, movePayload()), terminator(lead))
+		run(t, b)
+	})
+	t.Run("overlapping header chains", func(t *testing.T) {
+		h := channelHeaderN([8]byte{1}, lead, 1<<20, 0)
+		h[4] = 33
+		var b []byte
+		for i := 0; i < 20000; i++ {
+			b = append(b, h...)
+		}
+		b = append(b, bytes.Repeat([]byte{0xee}, 12)...)
+		run(t, b)
+	})
 }
