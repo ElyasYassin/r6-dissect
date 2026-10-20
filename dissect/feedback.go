@@ -248,3 +248,21 @@ func (r *Reader) isDead(username string) bool {
 	}
 	return false
 }
+
+// insertByElapsed inserts u in time order: after the last event with a phase whose
+// elapsedSeconds is not later than u's. Events recorded before the clock started (no phase)
+// stay first. Used for events that are only known after later events were recorded.
+func (r *Reader) insertByElapsed(u MatchUpdate) {
+	at := 0
+	for i, e := range r.MatchFeedback {
+		if e.Phase == "" || e.ElapsedSeconds <= u.ElapsedSeconds {
+			at = i + 1
+		}
+	}
+	r.MatchFeedback = append(r.MatchFeedback, MatchUpdate{})
+	copy(r.MatchFeedback[at+1:], r.MatchFeedback[at:])
+	r.MatchFeedback[at] = u
+	if r.pendingDefuserPlantIdx >= 0 && at <= r.pendingDefuserPlantIdx {
+		r.pendingDefuserPlantIdx++
+	}
+}
