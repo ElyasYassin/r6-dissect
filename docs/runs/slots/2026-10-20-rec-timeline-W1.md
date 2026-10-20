@@ -126,3 +126,13 @@ ok  	github.com/redraskal/r6-dissect/dissect/wire	3.027s
 
 ## Premise: Data() vs --dump (clubhouse)
 Data() len=53549064 sha256=7501958f...b961; r6-dissect --dump output 53549064 bytes sha256 7501958f...b961 (identical)
+
+## Fix round 1
+Reviewer verdict NEEDS-CHANGES on 4d91da9. The walker was rewritten to the observed header grammar (45 bytes, u32 lead at 0, id8 at 12, u32 count at 25 with count-2 envelopes following, free u32 at 33, a 12-byte terminator). The short header form, the gap envelope resync and the legacy no-panic test were removed. Code head: a547139. Evidence and red/green runs are in the PR body.
+
+## Observations
+- Y9S1 is not a Y11 layout but the walker finds headers in it. Command and output (a throwaway test calling Walk on the fixture, removed afterwards):
+```
+Y9S1 err=<nil> channels=7 envelopes=16134 gaps=2 unplaced=259330 prelude=259269 size=129201607 lastgap=[{129140909 129140958} {129201595 129201607}]
+```
+  Walk is documented in `dissect/wire/container.go` as `// Walk splits the decompressed buffer`. Acceptance: decide whether Y9S1 is a supported layout and, if so, add it to the fixture count table in `TestWalk_Fixtures`. Verified-against: a547139
