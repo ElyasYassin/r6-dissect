@@ -386,3 +386,17 @@ func TestDecodeTLV_Truncated(t *testing.T) {
 		t.Errorf("last gap %v, want {%d %d}", g, le.Start, len(cut))
 	}
 }
+
+// A nil emit counts without panicking, as DecodeMovement does.
+func TestDecodeTLV_NilEmit(t *testing.T) {
+	good := concat([]byte{4}, le32(10), tlvValue(fid("1f07efc9"), le32(1)), make([]byte, 12))
+	buf := concat(channelHeaderN([8]byte{1}, testLead, 2, 0), envBytes(1, good), envBytes(2, good), terminator(testLead))
+	l, err := wire.Walk(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := wire.DecodeTLV(buf, l, nil)
+	if err != nil || st.Envelopes != 2 || st.Tokens != 2 {
+		t.Fatalf("err=%v stats=%+v", err, st)
+	}
+}
