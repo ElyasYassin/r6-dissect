@@ -175,3 +175,14 @@ func TestDecodeMovement_Truncated(t *testing.T) {
 		t.Error("ticks not monotonic in the truncated prefix")
 	}
 }
+
+// Walk never yields decreasing ticks, so a hand-built layout is the only way to pin the flag.
+func TestDecodeMovement_TicksNotMonotonic(t *testing.T) {
+	rec := concat(le16(1), mvRec(h("5cc804f0"), mvTag60, nil))
+	a, b := envelope(5, rec), envelope(4, rec)
+	l := wire.Layout{Channels: []wire.Channel{{Kind: wire.PayloadMovement, Envelopes: []wire.Envelope{a, b}}}}
+	st, err := wire.DecodeMovement(nil, l, nil)
+	if err != nil || st.TicksMonotonic || st.FirstTick != 5 || st.LastTick != 4 || st.Records != 2 {
+		t.Errorf("stats = %+v err=%v", st, err)
+	}
+}
