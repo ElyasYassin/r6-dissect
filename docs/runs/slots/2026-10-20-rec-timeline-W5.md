@@ -166,3 +166,38 @@ Match-2026-10-18_18-19-54-14012-R01.timeline.json
 - C-RT-13: no fixture has a plant with 44 to 46 s left; the pin is synthetic.
 - The ten player entities have an empty class in every fixture; the twenty pawns carry the graph class.
 - Reading from stdin names the sidecar after the file name os.Stdin reports, so it is stdin.timeline.json.
+
+## Fix round 1
+
+Red run before the fix:
+
+```
+--- FAIL: TestRead_ListenerEOFStillSettlesTimeline (0.53s)
+    timeline_internal_test.go:180: dissect: timeline not built; call Read first
+--- FAIL: TestTimeline_CorruptTLVIsTimelineError (0.34s)
+    timeline_internal_test.go:206: <nil> <nil>
+FAIL
+FAIL	github.com/redraskal/r6-dissect/dissect	0.910s
+FAIL
+```
+
+Mutants:
+
+```
+--- MUTANT gate-threshold-1.0 (red expected)
+--- FAIL: TestTimeline_CorruptTLVIsTimelineError (0.41s)
+    timeline_internal_test.go:206: <nil> <nil>
+FAIL
+FAIL	github.com/redraskal/r6-dissect/dissect	0.443s
+FAIL
+--- REVERT gate-threshold-1.0 (green)
+ok  	github.com/redraskal/r6-dissect/dissect	0.508s
+--- MUTANT settle-removed (red expected)
+--- FAIL: TestRead_ListenerEOFStillSettlesTimeline (0.38s)
+    timeline_internal_test.go:180: dissect: timeline not built; call Read first
+FAIL
+FAIL	github.com/redraskal/r6-dissect/dissect	0.402s
+FAIL
+--- REVERT settle-removed (green)
+ok  	github.com/redraskal/r6-dissect/dissect	0.431s
+```
