@@ -260,7 +260,7 @@ type TLVStats struct {
 
 // DecodeTLV decodes every envelope of every PayloadTLV channel in l, in buffer order; emit receives the envelope
 // tick with each token. Decode errors are collected per block (the block is abandoned, the next one continues).
-// A non-nil error from emit stops the walk and is returned.
+// A nil emit only counts. A non-nil error from emit stops the walk and is returned.
 func DecodeTLV(b []byte, l Layout, emit func(tick uint32, t Token) error) (TLVStats, error) {
 	var st TLVStats
 	for _, c := range l.ChannelsOf(PayloadTLV) {
@@ -277,7 +277,9 @@ func DecodeTLV(b []byte, l Layout, emit func(tick uint32, t Token) error) (TLVSt
 				var emitErr error
 				err := DecodeBlock(b, blk, func(t Token) error {
 					st.Tokens++
-					emitErr = emit(e.Tick, t)
+					if emit != nil {
+						emitErr = emit(e.Tick, t)
+					}
 					return emitErr
 				})
 				if emitErr != nil {
