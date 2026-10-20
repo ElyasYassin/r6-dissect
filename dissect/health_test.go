@@ -213,3 +213,13 @@ func TestResolveHealth_DownedTwice(t *testing.T) {
 		t.Fatalf("want the first down uncredited and the second credited to d2, got %+v", r.MatchFeedback)
 	}
 }
+
+// a revived player who is downed again and finished right after the revive keeps the revive.
+func TestResolveHealth_RevivedThenQuickDownAndKill(t *testing.T) {
+	r := resolveReader([]healthTransition{tr(0, healthStateDowned, 10), tr(0, healthStateWounded, 20), tr(0, healthStateDowned, 20), tr(0, healthStateDead, 21)},
+		down("a1", 10, 0), down("a1", 20, 2), kill("d2", "a1", 21))
+	r.resolveHealthEvents()
+	if got := feedTypes(r); len(got) != 4 || got[1] != Revive || r.MatchFeedback[2].Username != "d2" {
+		t.Fatalf("want [DBNO Revive DBNO Kill] with the second down credited to d2, got %v", r.MatchFeedback)
+	}
+}

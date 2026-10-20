@@ -52,3 +52,12 @@ func TestInsertByElapsed_PhaseLessPrefix(t *testing.T) {
 		t.Fatalf("want the inserted event at index 1, got %v", got)
 	}
 }
+
+// an insert at the pending defuser's index pushes the pending index along with it.
+func TestInsertByElapsed_InsertAtPendingIndex(t *testing.T) {
+	r := &Reader{pendingDefuserPlantIdx: 1, MatchFeedback: []MatchUpdate{at(Kill, 10), at(DefuserPlantComplete, 12), at(Kill, 20)}}
+	r.insertByElapsed(at(DefuserPlantStop, 11))
+	if r.pendingDefuserPlantIdx != 2 || r.MatchFeedback[2].Type != DefuserPlantComplete {
+		t.Fatalf("want pending index 2 on DefuserPlantComplete, got %d, %v", r.pendingDefuserPlantIdx, r.MatchFeedback)
+	}
+}

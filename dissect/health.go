@@ -169,8 +169,10 @@ func readHealthState(r *Reader) error {
 
 // downRevived reports whether the down at healthTransitions[down] was followed by a revive, i.e.
 // the player left the downed state and did not die right after, and returns the transition out
-// of the downed state.
-func (r *Reader) downRevived(down int) (healthTransition, bool) {
+// of the downed state. A death only finishes the down if it comes before the player's next down:
+// feed is the index of the DBNO being resolved, and a Kill after the target's next DBNO in the
+// feed belongs to that one.
+func (r *Reader) downRevived(down, feed int) (healthTransition, bool) {
 	var none healthTransition
 	player := r.healthTransitions[down].player
 	if player < 0 || player >= len(r.Header.Players) {
@@ -191,8 +193,14 @@ func (r *Reader) downRevived(down int) (healthTransition, bool) {
 	if len(next) == 2 && next[1].state == healthStateDead && next[1].elapsed-next[0].elapsed <= healthDeathWindow {
 		return none, false
 	}
+	if len(next) == 2 && next[1].state == healthStateDowned {
+		return next[0], true
+	}
 	target := r.Header.Players[player].Username
-	for _, u := range r.MatchFeedback {
+	for _, u := range r.MatchFeedback[feed+1:] {
+		if u.Type == DBNO && u.Target == target {
+			break
+		}
 		if u.Type == Kill && u.Target == target && u.ElapsedSeconds >= next[0].elapsed && u.ElapsedSeconds-next[0].elapsed <= healthDeathWindow {
 			return none, false
 		}
@@ -236,7 +244,7 @@ func (r *Reader) resolveHealthEvents() {
 		if d.Type != DBNO || d.healthTransition <= 0 || d.healthTransition > len(r.healthTransitions) {
 			continue
 		}
-		if t, revived := r.downRevived(d.healthTransition - 1); revived {
+		if t, revived := r.downRevived(d.healthTransition-1, i); revived {
 			revives = append(revives, MatchUpdate{
 				Type:           Revive,
 				Username:       r.takeScoreReviver(t.player, t.elapsed),
