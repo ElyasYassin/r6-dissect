@@ -113,16 +113,17 @@ func (e *DecodeError) Error() string {
 // Block is the absolute buffer bounds of one `u32 C` block payload inside a TLV envelope.
 type Block struct{ Start, End int }
 
-// Blocks splits a TLV envelope payload: skip the leading 0x04, then read u32
-// words. A non-zero word C starts a block of C payload bytes; a zero word is
-// padding and is skipped. The payload must be consumed exactly. Offsets are
-// absolute (e.Start + 12 is the payload start). Errors are *DecodeError.
+// Blocks splits a TLV envelope payload. The grammar observed on every TLV
+// envelope of the Y11 fixtures (PR #5 review) is
 //
-// The findings doc describes one block followed by 12 zero bytes. On the Y11
-// fixtures that is the common shape, but a few percent of envelopes differ:
-// two blocks then 8 zero bytes, or two blocks, a zero word and a third block
-// that runs to the payload end. Requiring a 12-byte zero trailer would reject
-// those, so zero words are accepted anywhere after the leading 0x04.
+//	payload := 0x04 slot slot slot slot      exactly four slots
+//	slot    := u32 C  bytes(C)               C may be 0 (an empty slot)
+//
+// so the "12 zero bytes" the findings doc describes are three empty slots,
+// "8 zero bytes" are two, and a zero word between blocks is one. Only the
+// non-empty slots are returned, with absolute offsets (e.Start + 12 is the
+// payload start). A payload with fewer or more than four slots, a slot that
+// overruns the payload, or a missing leading 0x04 is a *DecodeError.
 func Blocks(e Envelope) ([]Block, error) {
 	p := e.Payload
 	base := e.Start + 12
@@ -133,9 +134,10 @@ func Blocks(e Envelope) ([]Block, error) {
 		return nil, &DecodeError{Offset: base, Op: p[0], Reason: "payload does not start with 0x04"}
 	}
 	var out []Block
-	for pos := 1; pos < len(p); {
+	pos := 1
+	for slot := 0; slot < 4; slot++ {
 		if len(p)-pos < 4 {
-			return out, &DecodeError{Offset: base + pos, Reason: "dangling bytes after last block"}
+			return out, &DecodeError{Offset: base + pos, Reason: "fewer than four length slots"}
 		}
 		c := int(binary.LittleEndian.Uint32(p[pos:]))
 		pos += 4
@@ -147,6 +149,9 @@ func Blocks(e Envelope) ([]Block, error) {
 		}
 		out = append(out, Block{Start: base + pos, End: base + pos + c})
 		pos += c
+	}
+	if pos != len(p) {
+		return out, &DecodeError{Offset: base + pos, Reason: "bytes after the fourth slot"}
 	}
 	return out, nil
 }
@@ -269,10 +274,15 @@ func DecodeTLV(b []byte, l Layout, emit func(tick uint32, t Token) error) (TLVSt
 			}
 			for _, blk := range blocks {
 				st.Blocks++
+				var emitErr error
 				err := DecodeBlock(b, blk, func(t Token) error {
 					st.Tokens++
-					return emit(e.Tick, t)
+					emitErr = emit(e.Tick, t)
+					return emitErr
 				})
+				if emitErr != nil {
+					return st, emitErr
+				}
 				if de, ok := err.(*DecodeError); ok {
 					st.Errors = append(st.Errors, *de)
 				} else if err != nil {

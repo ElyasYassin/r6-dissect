@@ -155,7 +155,7 @@ func TestDecodeBlock_EmitError(t *testing.T) {
 }
 
 func TestBlocks(t *testing.T) {
-	buf := envBytes(7, concat([]byte{4}, le32(3), []byte("abc"), le32(1), []byte("d"), make([]byte, 12)))
+	buf := envBytes(7, concat([]byte{4}, le32(3), []byte("abc"), le32(1), []byte("d"), make([]byte, 8))) // B B Z Z: four slots
 	e, ok := wire.ParseEnvelopeAt(buf, 0)
 	if !ok {
 		t.Fatal("envelope")
@@ -176,13 +176,15 @@ func TestBlocks(t *testing.T) {
 		"block overruns":       concat([]byte{4}, le32(99), []byte("d"), make([]byte, 12)),
 		"short header":         concat([]byte{4}, []byte{1, 0}, make([]byte, 12)),
 		"dangling 3 bytes":     concat([]byte{4}, le32(1), []byte("d"), []byte{0, 0, 0}),
+		"three slots":          concat([]byte{4}, le32(1), []byte("d"), make([]byte, 8)),
+		"five slots":           concat([]byte{4}, le32(1), []byte("d"), make([]byte, 16)),
 	}
 	for name, p := range bad {
 		if _, err := wire.Blocks(envelope(1, p)); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
-	if bs, err := wire.Blocks(envelope(1, concat([]byte{4}, make([]byte, 12)))); err != nil || len(bs) != 0 {
+	if bs, err := wire.Blocks(envelope(1, concat([]byte{4}, make([]byte, 16)))); err != nil || len(bs) != 0 { // four empty slots
 		t.Errorf("empty payload: %v %v", bs, err)
 	}
 }
@@ -332,5 +334,55 @@ func TestBlocks_ObservedVariants(t *testing.T) {
 				t.Errorf("%s: block %d = %v, want %v", c.name, i, bs[i], c.want[i])
 			}
 		}
+	}
+}
+
+// An emit error that happens to be a *DecodeError is still the consumer's
+// error: it stops the walk and is returned, not recorded as a block error.
+func TestDecodeTLV_EmitDecodeErrorStops(t *testing.T) {
+	good := concat([]byte{4}, le32(10), tlvValue(fid("1f07efc9"), le32(1)), make([]byte, 12))
+	buf := concat(channelHeaderN([8]byte{1}, testLead, 2, 0), envBytes(1, good), envBytes(2, good), terminator(testLead))
+	l, err := wire.Walk(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stop := &wire.DecodeError{Reason: "consumer says stop"}
+	calls := 0
+	st, err := wire.DecodeTLV(buf, l, func(uint32, wire.Token) error { calls++; return stop })
+	if err != stop || calls != 1 || len(st.Errors) != 0 {
+		t.Fatalf("err=%v calls=%d stats=%+v", err, calls, st)
+	}
+}
+
+// A buffer cut inside the last TLV envelope: Walk leaves the partial envelope
+// out of the channel (a trailing gap), so DecodeTLV sees one envelope fewer
+// and no error; the cut shows in Layout.Gaps, not in TLVStats.
+func TestDecodeTLV_Truncated(t *testing.T) {
+	b := decompress(t, fixture(t, "Y11S3", "custom_clubhouse_short.rec"))
+	lf, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := wire.DecodeTLV(b, lf, func(uint32, wire.Token) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	tlv := lf.ChannelsOf(wire.PayloadTLV)
+	last := tlv[len(tlv)-1].Envelopes
+	le := last[len(last)-1]
+	cut := b[:(le.Start+le.End)/2]
+	l, err := wire.Walk(cut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := wire.DecodeTLV(cut, l, func(uint32, wire.Token) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Envelopes != full.Envelopes-1 || len(st.Errors) != 0 {
+		t.Errorf("truncated envelopes=%d errors=%d, full envelopes=%d", st.Envelopes, len(st.Errors), full.Envelopes)
+	}
+	if g := l.Gaps[len(l.Gaps)-1]; g.End != len(cut) || g.Start != le.Start {
+		t.Errorf("last gap %v, want {%d %d}", g, le.Start, len(cut))
 	}
 }
