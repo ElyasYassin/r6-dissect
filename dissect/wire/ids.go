@@ -2,7 +2,10 @@
 // It carries no game semantics and must not import the dissect package.
 package wire
 
-import "encoding/hex"
+import (
+	"encoding/binary"
+	"encoding/hex"
+)
 
 // Handle is an object or entity handle in file byte order.
 type Handle [8]byte
@@ -26,5 +29,12 @@ func (c ClassID) String() string { return hex.EncodeToString(c[:]) }
 func handleAt(b []byte, p int) Handle {
 	var h Handle
 	copy(h[:], b[p:p+8])
+	return h
+}
+
+// HandleOf converts a little-endian uint64 handle (as dissect.readHandle returns) into file byte order.
+func HandleOf(v uint64) Handle {
+	var h Handle
+	binary.LittleEndian.PutUint64(h[:], v)
 	return h
 }
