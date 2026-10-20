@@ -1,6 +1,13 @@
 package dissect
 
-import "testing"
+import (
+	"errors"
+	"io"
+	"os"
+	"testing"
+
+	wire "github.com/redraskal/r6-dissect/dissect/wire"
+)
 
 // Review Focus 1: the plant event shares its tick frame with the clock jump. The legacy
 // phase is still Action, so elapsed time must come from the Action samples, not from the
@@ -140,5 +147,62 @@ func TestRead_RoundEndDefuserStopIsDerived(t *testing.T) {
 	}
 	if stop == nil || stop.offset != -1 || !stop.derived {
 		t.Fatalf("%+v", stop)
+	}
+}
+
+const fortressFixture = "test/data/replays/valid/Y11S3/custom_fortress_plant.rec"
+
+func openFortress(t *testing.T) *Reader {
+	t.Helper()
+	f, err := os.Open(fortressFixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	r, err := NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+// A listener that stops the read with io.EOF is not an error, and the timeline must still settle.
+func TestRead_ListenerEOFStillSettlesTimeline(t *testing.T) {
+	r := openFortress(t)
+	r.EnableTimeline()
+	r.Listen([]byte{0x1F, 0x07, 0xEF, 0xC9}, func(*Reader) error { return io.EOF })
+	if err := r.Read(); !Ok(err) {
+		t.Fatal(err)
+	}
+	_, err := r.Timeline()
+	var te *TimelineError
+	if err != nil && !errors.As(err, &te) {
+		t.Fatal(err)
+	}
+	if (r.timeline == nil) == (r.timelineErr == nil) {
+		t.Fatalf("exactly one of timeline and timelineErr must be set: %v %v", r.timeline, r.timelineErr)
+	}
+}
+
+// Design 5.4: a segmenter that leaves more than 0.5% of the bytes unplaced voids the timeline.
+func TestTimeline_CorruptTLVIsTimelineError(t *testing.T) {
+	r := openFortress(t)
+	l, err := wire.Walk(r.b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := l.ChannelsOf(wire.PayloadTLV)[0]
+	mid := (c.Start + c.End) / 2
+	for i := mid; i < mid+4000; i++ {
+		r.b[i] = 0xff
+	}
+	r.EnableTimeline()
+	if err := r.Read(); !Ok(err) {
+		t.Fatal(err)
+	}
+	tl, err := r.Timeline()
+	var te *TimelineError
+	if tl != nil || !errors.As(err, &te) || te.Coverage == nil || te.Coverage.UnplacedFraction <= 0.005 {
+		t.Fatalf("%v %+v", err, te)
 	}
 }
