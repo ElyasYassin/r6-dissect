@@ -56,6 +56,7 @@ func TestDecodeBlock_EveryOpcode(t *testing.T) {
 		tlvRefIndexed(fid("9a984fa2"), 3, h1, cid("b430ebc4")),                    // current = h1
 		tlvValueIndexed(fid("51b44c48"), 1, []byte{0}),                            // on h1
 		tlvValueNamedIndexed(h3, fid("0badf00d"), 7, []byte{1, 2}),                // current = h3
+		tlvValue(fid("00000004"), []byte{9}),                                      // on h3
 		tlvRefNamedIndexed(h1, fid("0defaced"), 9, wire.Handle{}, wire.ClassID{}), // null target on named: current = h1
 		tlvValue(fid("00000001"), []byte{9}),                                      // on h1
 		tlvRefNamed(h2, fid("00000002"), wire.Handle{}, wire.ClassID{}),           // null target on named: current = h2
@@ -66,7 +67,7 @@ func TestDecodeBlock_EveryOpcode(t *testing.T) {
 		op  wire.Op
 		obj wire.Handle
 	}{{wire.OpBatch, h1}, {wire.OpValueNamed, h2}, {wire.OpValue, h2}, {wire.OpRefNamed, h1}, {wire.OpRef, h2},
-		{wire.OpRefIndexed, h2}, {wire.OpValueIndexed, h1}, {wire.OpValueNamedIndexed, h3}, {wire.OpRefNamedIndexed, h1},
+		{wire.OpRefIndexed, h2}, {wire.OpValueIndexed, h1}, {wire.OpValueNamedIndexed, h3}, {wire.OpValue, h3}, {wire.OpRefNamedIndexed, h1},
 		{wire.OpValue, h1}, {wire.OpRefNamed, h2}, {wire.OpValue, h2}}
 	if len(got) != len(want) {
 		t.Fatalf("got %d tokens, want %d", len(got), len(want))
