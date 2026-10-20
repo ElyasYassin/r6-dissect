@@ -136,3 +136,6 @@ Reviewer verdict NEEDS-CHANGES on 4d91da9. The walker was rewritten to the obser
 Y9S1 err=<nil> channels=7 envelopes=16134 gaps=2 unplaced=259330 prelude=259269 size=129201607 lastgap=[{129140909 129140958} {129201595 129201607}]
 ```
   Walk is documented in `dissect/wire/container.go` as `// Walk splits the decompressed buffer`. Acceptance: decide whether Y9S1 is a supported layout and, if so, add it to the fixture count table in `TestWalk_Fixtures`. Verified-against: a547139
+
+## Fix round 2
+Reviewer found two regressions in round 1. The buffer cut inside the next header dropped the whole layout, and the leading-run and first-header scans were quadratic. Code head: cf03131. The leading-run search is now a single right-to-left pass, the first-header scan memoizes envelope chains per lead, and a stub header at the end of a cut buffer is accepted after a complete channel. Red and green runs are in the PR body.
