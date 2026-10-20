@@ -289,6 +289,7 @@ func (r *Reader) Read() (err error) {
 		r.roundEnd()
 		r.stampNew(n)
 		r.backfillLeadingUpdates()
+		r.relabelPostPlantWithoutPlant()
 		r.applyLoadouts()
 	}
 	r.b = nil
