@@ -19,7 +19,15 @@ func TestGraph(t *testing.T) {
 	if e, ok := g.Parent(inv); !ok || e.Owner != pawn || e.Field != fid("e8d1e539") || e.Tick != 2 {
 		t.Fatal("parent of inv", e, ok)
 	}
-	if n := len(g.Children(pawn)); n != 1 {
+	g.Add(5, wire.Token{Op: wire.OpRef, Object: player, Field: fid("e8d1e539"), Target: inv, Class: cid("579fb57b")})
+	if e, ok := g.Parent(inv); !ok || e.Owner != player || e.Tick != 5 {
+		t.Fatal("parent must be the last edge", e, ok)
+	}
+	g.Add(6, wire.Token{Op: wire.OpRef, Object: pawn, Field: fid("11111111"), Target: h("0102030405060708"), Class: cid("579fb57b")})
+	if ch := g.Children(pawn); len(ch) != 2 || ch[0].Tick != 2 || ch[1].Tick != 6 {
+		t.Fatal("children must keep add order", ch)
+	}
+	if n := len(g.Children(pawn)); n != 2 {
 		t.Fatal("children of pawn", n)
 	}
 	isPlayer := func(x wire.Handle) bool { return x == player }
@@ -36,8 +44,12 @@ func TestGraph_AncestorCycle(t *testing.T) {
 	a, b := h("a07305f0"), h("303b04f0")
 	g.Add(1, wire.Token{Op: wire.OpRef, Object: a, Field: fid("27c08dca"), Target: b, Class: cid("b2216bf3")})
 	g.Add(2, wire.Token{Op: wire.OpRef, Object: b, Field: fid("27c08dca"), Target: a, Class: cid("b2216bf3")})
-	if _, ok := g.Ancestor(a, func(wire.Handle) bool { return false }); ok {
+	calls := 0
+	if _, ok := g.Ancestor(a, func(wire.Handle) bool { calls++; return false }); ok {
 		t.Fatal("a cycle with no match must terminate as !ok")
+	}
+	if calls != 16 {
+		t.Fatalf("stop called %d times, want 16", calls)
 	}
 }
 

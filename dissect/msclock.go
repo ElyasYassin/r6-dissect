@@ -14,11 +14,7 @@ var (
 // msPhaseMaxPrepMs is the longest first sample that still labels the first phase as Prep.
 const msPhaseMaxPrepMs = prepPhaseMax * 1000
 
-// Limit: only a rise starts a phase. A plant with more than 45 s left makes the clock
-// drop to the defuser countdown, which this clock reads as a plain sample (pinned in
-// TestMsClock_PlantAboveCountdownIsNotDetected).
-
-// msPhaseJumpMs is how far a sample must rise above its predecessor to start a new phase.
+// msPhaseJumpMs is how far a sample must differ from its predecessor, in either direction, to start a new phase.
 const msPhaseJumpMs = 1000
 
 // msPhase is one countdown of the millisecond round clock. BaseMs is the elapsed
@@ -68,7 +64,15 @@ func (c *msClock) observe(tick uint32, t wire.Token) {
 	if !ok {
 		return
 	}
-	if n := len(c.samples); n == 0 || int64(ms) > int64(c.samples[n-1].Ms)+msPhaseJumpMs {
+	if n := len(c.samples); n == 0 {
+		c.startPhase(tick, ms)
+	} else if prev := int64(c.samples[n-1].Ms); int64(ms) > prev+msPhaseJumpMs {
+		c.startPhase(tick, ms)
+	} else if prev-int64(ms) > msPhaseJumpMs {
+		if ms == 0 {
+			// a discontinuous drop to 0 is the round-end reset, as in the legacy clock
+			return
+		}
 		c.startPhase(tick, ms)
 	}
 	c.samples = append(c.samples, msSample{Tick: tick, Ms: ms, phase: len(c.ph) - 1})

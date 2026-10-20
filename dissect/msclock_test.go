@@ -20,15 +20,14 @@ func clockTok(f wire.FieldID, v uint32) wire.Token { return clockTokOn(clockGS, 
 func TestMsClock_Phases(t *testing.T) {
 	c := newMsClock()
 	c.observe(10, clockTok(fieldRoundTimer, 44))
-	for i, ms := range []uint32{44832, 44757, 1200, 80} {
+	for i, ms := range []uint32{44832, 44757, 44720, 44683} {
 		c.observe(uint32(20+i*9), clockTok(fieldRoundClockMs, ms))
 	}
 	c.observe(100, clockTok(fieldRoundClockMs, 179917))
 	c.observe(109, clockTok(fieldRoundClockMs, 179880))
-	c.observe(480, clockTok(fieldRoundClockMs, 12000)) // plant with 12 s left: the defuser countdown rises to 45 s
 	c.observe(500, clockTok(fieldRoundClockMs, 45000))
 	c.observe(509, clockTok(fieldRoundClockMs, 44960))
-	want := []msPhase{{PrepPhase, 20, 44832, 0}, {ActionPhase, 100, 179917, 0}, {PostPlantPhase, 500, 45000, 179917 - 12000}}
+	want := []msPhase{{PrepPhase, 20, 44832, 0}, {ActionPhase, 100, 179917, 0}, {PostPlantPhase, 500, 45000, 179917 - 179880}}
 	got := c.phases()
 	if len(got) != len(want) {
 		t.Fatalf("phases = %+v", got)
@@ -44,7 +43,7 @@ func TestMsClock_Phases(t *testing.T) {
 	if p, ms, el, _ := c.at(109); p != ActionPhase || ms != 179880 || el != 37 {
 		t.Fatal(p, ms, el)
 	}
-	if p, ms, el, _ := c.at(600); p != PostPlantPhase || ms != 44960 || el != 167917+40 {
+	if p, ms, el, _ := c.at(600); p != PostPlantPhase || ms != 44960 || el != 37+40 {
 		t.Fatal(p, ms, el)
 	}
 	if _, _, _, ok := c.at(5); ok {
@@ -55,17 +54,42 @@ func TestMsClock_Phases(t *testing.T) {
 	}
 }
 
-// A plant with more than 45 s left makes the clock drop to the defuser countdown instead of
-// rising, so the rising-jump rule does not see a phase change. The legacy clock handles this
-// through startPostPlant; the millisecond clock does not.
-func TestMsClock_PlantAboveCountdownIsNotDetected(t *testing.T) {
+func TestMsClock_PlantAboveCountdown(t *testing.T) {
 	c := newMsClock()
 	c.observe(1, clockTok(fieldRoundTimer, 179))
-	c.observe(2, clockTok(fieldRoundClockMs, 179000))
+	c.observe(2, clockTok(fieldRoundClockMs, 100035))
 	c.observe(10, clockTok(fieldRoundClockMs, 100000))
 	c.observe(20, clockTok(fieldRoundClockMs, 45000))
+	ph := c.phases()
+	if len(ph) != 2 || ph[1] != (msPhase{PostPlantPhase, 20, 45000, 35}) {
+		t.Fatalf("phases = %+v", ph)
+	}
+}
+
+func TestMsClock_RoundEndResetIsNotASample(t *testing.T) {
+	c := newMsClock()
+	c.observe(1, clockTok(fieldRoundTimer, 179))
+	c.observe(2, clockTok(fieldRoundClockMs, 179917))
+	c.observe(9, clockTok(fieldRoundClockMs, 179880))
+	c.observe(16, clockTok(fieldRoundClockMs, 0))
 	if n := len(c.phases()); n != 1 {
-		t.Fatalf("phases = %d, a drop to the countdown is a plain sample", n)
+		t.Fatalf("phases = %d", n)
+	}
+	if p, ms, el, ok := c.at(16); !ok || p != ActionPhase || ms != 179880 || el != 37 {
+		t.Fatal(p, ms, el, ok)
+	}
+}
+
+func TestMsClock_NaturalExpiry(t *testing.T) {
+	c := newMsClock()
+	c.observe(1, clockTok(fieldRoundTimer, 179))
+	c.observe(2, clockTok(fieldRoundClockMs, 900))
+	c.observe(9, clockTok(fieldRoundClockMs, 0))
+	if n := len(c.phases()); n != 1 {
+		t.Fatalf("phases = %d", n)
+	}
+	if _, ms, el, ok := c.at(9); !ok || ms != 0 || el != 0 {
+		t.Fatal(ms, el, ok)
 	}
 }
 
@@ -121,31 +145,46 @@ func openFixtureReader(t *testing.T, name string) *Reader {
 	return openRec(t, filepath.Join("test", "data", "replays", "valid", "Y11S3", name))
 }
 
-func TestMsClock_Fixture(t *testing.T) {
-	r := openFixtureReader(t, "custom_fortress_plant.rec")
-	b := r.Data()
-	l, err := wire.Walk(b)
-	if err != nil {
-		t.Fatal(err)
+func TestMsClock_Fixtures(t *testing.T) {
+	base := filepath.Join("test", "data", "replays", "valid")
+	cases := []struct {
+		path string
+		post *msPhase
+	}{
+		{"Y11S2/custom_early_plant.rec", &msPhase{PostPlantPhase, 12147, 44977, 55881}},
+		{"Y11S2/custom_solid_snake.rec", &msPhase{PostPlantPhase, 17517, 44946, 100895}},
+		{"Y11S3/custom_fortress_plant.rec", &msPhase{PostPlantPhase, 45872, 44938, 167292}},
+		{"Y11S3/custom_clubhouse_short.rec", nil},
+		{"Y11S3/custom_lair_plant_stop.rec", nil},
 	}
-	c := newMsClock()
-	if _, err := wire.DecodeTLV(b, l, func(tick uint32, tk wire.Token) error { c.observe(tick, tk); return nil }); err != nil {
-		t.Fatal(err)
+	for _, tc := range cases {
+		t.Run(tc.path, func(t *testing.T) {
+			r := openRec(t, filepath.Join(base, filepath.FromSlash(tc.path)))
+			b := r.Data()
+			l, err := wire.Walk(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := newMsClock()
+			if _, err := wire.DecodeTLV(b, l, func(tick uint32, tk wire.Token) error { c.observe(tick, tk); return nil }); err != nil {
+				t.Fatal(err)
+			}
+			ph := c.phases()
+			t.Logf("gameState=%s samples=%d phases=%+v", c.gameState, len(c.samples), ph)
+			want := 2
+			if tc.post != nil {
+				want = 3
+			}
+			if len(ph) != want || ph[0].Phase != PrepPhase || ph[0].StartMs > 60000 || ph[1].Phase != ActionPhase {
+				t.Fatalf("phases = %+v", ph)
+			}
+			if tc.post != nil {
+				if ph[2].Phase != tc.post.Phase || ph[2].Tick != tc.post.Tick || ph[2].StartMs != tc.post.StartMs || ph[2].BaseMs != tc.post.BaseMs {
+					t.Errorf("postplant = %+v, want %+v", ph[2], *tc.post)
+				}
+			}
+		})
 	}
-	ph := c.phases()
-	if len(ph) != 3 {
-		t.Fatalf("phases = %+v", ph)
-	}
-	if ph[0].Phase != PrepPhase || ph[0].StartMs > 60000 || ph[0].StartMs < 10000 {
-		t.Errorf("prep = %+v", ph[0])
-	}
-	if ph[1].Phase != ActionPhase || ph[1].StartMs < 170000 || ph[1].StartMs > 185000 {
-		t.Errorf("action = %+v", ph[1])
-	}
-	if ph[2].Phase != PostPlantPhase || ph[2].StartMs < 40000 || ph[2].StartMs > 46000 {
-		t.Errorf("postplant = %+v", ph[2])
-	}
-	t.Logf("gameState=%s samples=%d phases=%+v", c.gameState, len(c.samples), ph)
 }
 
 // Every MatchFeedback entry of every valid fixture must carry a buffer offset, so a listener
@@ -168,5 +207,33 @@ func TestAddUpdate_OffsetsStamped(t *testing.T) {
 				t.Errorf("%s: MatchFeedback[%d] has offset -1 but is not derived", p, i)
 			}
 		}
+	}
+}
+
+func TestAddUpdate_RoundEndInferenceIsDerived(t *testing.T) {
+	r := &Reader{Header: Header{CodeVersion: Y10S4, GameMode: Bomb,
+		Teams:   [2]Team{{Role: Attack}, {Role: Defense, Score: 1}},
+		Players: roundEndPlayers()},
+		MatchFeedback: []MatchUpdate{{Type: DefuserPlantComplete, Username: ""}},
+	}
+	r.offset = 1234
+	r.roundEnd()
+	u := r.MatchFeedback[len(r.MatchFeedback)-1]
+	if u.Type != DefuserDisableComplete || u.offset != -1 || !u.derived {
+		t.Fatalf("%+v", u)
+	}
+}
+
+func TestAddUpdate_LastAliveDefuserIsDerived(t *testing.T) {
+	r := &Reader{Header: Header{CodeVersion: Y10S4, GameMode: Bomb,
+		Teams:   [2]Team{{Role: Attack}, {Role: Defense}},
+		Players: roundEndPlayers()},
+		MatchFeedback: []MatchUpdate{{Type: Kill, Username: "d1", Target: "a2"}},
+	}
+	r.offset = 77
+	r.startDefuserRun(-1, defuserStatePlanting)
+	u := r.MatchFeedback[len(r.MatchFeedback)-1]
+	if u.Type != DefuserPlantStart || u.Username != "a1" || !u.derived || u.offset != 77 {
+		t.Fatalf("%+v", u)
 	}
 }
