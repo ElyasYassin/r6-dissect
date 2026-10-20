@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -68,8 +69,8 @@ func TestWriteRound_Sidecar(t *testing.T) {
 	if bytes.Contains(bytes.TrimRight(b, "\n"), []byte("\n")) {
 		t.Fatal("sidecar must not be indented")
 	}
-	if fi, err := os.Stat(dir); err != nil || fi.Mode().Perm() != 0o755 {
-		t.Fatal(fi, err)
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() || (runtime.GOOS != "windows" && fi.Mode().Perm() != 0o755) {
+		t.Fatal(fi, err) // Windows reports 0o777 for every directory
 	}
 	if len(round["matchFeedback"].([]any)) != len(tl.Events) {
 		t.Fatal("round and sidecar disagree on the event count")
