@@ -123,8 +123,8 @@ func (l Layout) ChannelsOf(kind PayloadKind) []Channel // channels whose Kind ==
 
 var ErrNoEnvelopes = errors.New("wire: no channels or envelopes found")
 
-// ParseChannelHeaderAt reports whether a 45-byte channel header starts at p:
-// 03 b9 00 00, 8 zero bytes, id8, u32, u32, 17 zero bytes.
+// ParseChannelHeaderAt reports whether a 45-byte channel header starts at p (grammar amended 2026-10-20, findings §2.1):
+// u32 lead, one free byte, 7 zero bytes, id8 (non-zero), u32, 00, u32 count (>= 2; count-2 envelopes follow), 4 zero bytes, u32, 8 zero bytes.
 func ParseChannelHeaderAt(b []byte, p int) (id [8]byte, ok bool)
 // ParseEnvelopeAt parses u32 tick, u32 len, u32 zero, payload[len] at p.
 // ok is false when p+12 > len(b), the zero word is not zero, len == 0, or p+12+len > len(b).
@@ -324,7 +324,7 @@ func TestDecodeBlock_UnknownOpcode(t *testing.T) {
     if !errors.As(err, &de) || de.Offset != 10 || de.Op != 0x99 { t.Fatalf("%v", err) }
 }
 func TestDecodeBlock_Overrun(t *testing.T) {     // Review Focus 2/3: a value whose len runs past the block
-    blk := concat([]byte{0x22}, fid("1f07efc9")[:], []byte{9, 1, 2})
+    f := fid("1f07efc9"); blk := concat([]byte{0x22}, f[:], []byte{9, 1, 2})   // arrays returned by a call are unaddressable: assign before slicing
     err := DecodeBlock(blk, Block{0, len(blk)}, func(Token) error { return nil })
     var de *DecodeError; if !errors.As(err, &de) || de.Reason != "token overruns block" { t.Fatal(err) }
 }
@@ -430,7 +430,7 @@ func TestParseGroup(t *testing.T) {
     e := envelope(1, concat(le16(2), rec(h("5cc804f0"), tag60, []byte{1,2,3}), rec(h("3dca04f0"), tag61, nil)))
     g, ok := ParseGroup(e)
     if !ok || len(g.Records) != 2 || g.Records[0].Entity != h("5cc804f0") || !bytes.Equal(g.Records[0].Payload, []byte{1,2,3}) || len(g.Records[1].Payload) != 0 { t.Fatal() }
-    if _, ok := ParseGroup(envelope(1, concat(le16(1), h("5cc804f0")[:], le32(3), []byte{0x60,0x73,0x85}))); ok { t.Fatal("L<4 must fail") }   // Review Focus 3
+    e5 := h("5cc804f0"); if _, ok := ParseGroup(envelope(1, concat(le16(1), e5[:], le32(3), []byte{0x60,0x73,0x85}))); ok { t.Fatal("L<4 must fail") }   // assign before slicing   // Review Focus 3
     if _, ok := ParseGroup(envelope(1, concat(le16(1), rec(h("5cc804f0"), [4]byte{1,2,3,4}, nil)))); ok { t.Fatal("bad tag must fail") }
     if _, ok := ParseGroup(envelope(1, concat(le16(2), rec(h("5cc804f0"), tag60, nil)))); ok { t.Fatal("count > records must fail") }
     if _, ok := ParseGroup(envelope(1, concat(le16(1), rec(h("5cc804f0"), tag60, nil), []byte{0}))); ok { t.Fatal("trailing bytes must fail") }

@@ -27,9 +27,12 @@ Byte totals: regions 4 and 6 together are 99.4 % of the file. The same layout, w
 The regions above are not seven ad-hoc formats. The decompressed stream is a sequence of **channels**, each introduced by a 45-byte header and followed by tick-stamped **envelopes**:
 
 ```
-channel header := 03 b9 00 00  00*8  id8  u32  u32  00*17          (45 bytes; `id8` differs per channel)
+channel header := u32 lead  byte  00*7  id8  u32  00  u32 count  00*4  u32  00*8   (45 bytes; `id8` differs per channel)
 envelope       := u32 tick  u32 len  u32 0  payload[len]
+terminator     := u32 lead  00*8                                                (12 bytes, after the last channel)
 ```
+
+Amended 2026-10-20 (PR #2 review of the walker, verified on all headers of the five Y11S2/Y11S3 fixtures): the first word is not the constant `03 b9 00 00` but a per-file `lead` that is identical in every header of a file and ≥ every tick in it (observed `lead`/max tick 12565/12561, 19553/19552, 39019/39013, 47363/47358, 38033/38032); byte 4 is `0a`/`0b` on the first channel and zero elsewhere; the u32 at offset 25 is the channel's envelope count + 2; the u32 at offset 33 is non-zero for some channels (`5f87976f`, `26b9c2c1`, `014e3af4`, and `63fe54d3` in one round), so the tail is not `00*17`. A count-driven walk places every byte except the prelude and the 12-byte terminator. Fixtures hold 11/11/10/10/10 channels (early_plant, solid_snake, clubhouse_short, fortress_plant, lair_plant_stop).
 
 Payload formats differ per channel: TLV batches (payload starts `04`, ends with 12 zero bytes, which is why TLV frames looked like `00*12 tick len 0 04 …`), movement groups (`u16 count` + records), and at least two undecoded formats (Block A: 1,025 envelopes, ticks 7 → 47,357, payloads 100–126 bytes starting `09 f3`/`0a eb`; Block B: several channels, the first with 2,452 envelopes, ticks 7 → 47,333). Envelope ticks are monotonic inside every channel probed, so the whole file can be merged into one tick-ordered stream. The world object handle (`ed1505f0` in match 1, `b8442cf0` in match 3) and the game-state object differ per file and must be discovered, while field ids such as `1784e409` (batch), `1F07EFC9` (timer) and `1837466C` (ms clock) are constant.
 
