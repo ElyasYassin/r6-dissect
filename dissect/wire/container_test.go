@@ -2,6 +2,7 @@ package wire_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -57,33 +58,45 @@ func TestParseChannelHeaderAt(t *testing.T) {
 	if _, ok := wire.ParseChannelHeaderAt(hd[:44], 0); ok {
 		t.Fatal("short header")
 	}
-	other := append([]byte(nil), hd...)
-	other[0], other[1], other[4] = 0x6b, 0x98, 0x0a
-	if _, ok := wire.ParseChannelHeaderAt(other, 0); !ok {
-		t.Fatal("leading u32 and byte 4 are free")
+	mut := func(f func(h []byte)) []byte {
+		h := append([]byte(nil), hd...)
+		f(h)
+		return h
 	}
-	dirty := append([]byte(nil), hd...)
-	dirty[44] = 1
-	if _, ok := wire.ParseChannelHeaderAt(dirty, 0); ok {
-		t.Fatal("non-zero trailer must not parse")
+	free := mut(func(h []byte) { h[0], h[1], h[4] = 0x6b, 0x98, 0x0a; h[20], h[22] = 7, 9; h[33], h[35] = 0x41, 5 })
+	if _, ok := wire.ParseChannelHeaderAt(free, 0); !ok {
+		t.Fatal("lead, byte 4, off 20 and off 33 are free")
 	}
-	dirty = append([]byte(nil), hd...)
-	dirty[11] = 1
-	if _, ok := wire.ParseChannelHeaderAt(dirty, 0); ok {
-		t.Fatal("non-zero pad must not parse")
+	for name, h := range map[string][]byte{
+		"zero lead":      mut(func(h []byte) { h[0], h[1] = 0, 0 }),
+		"high lead half": mut(func(h []byte) { h[2] = 1 }),
+		"pad at 5":       mut(func(h []byte) { h[5] = 1 }),
+		"pad at 11":      mut(func(h []byte) { h[11] = 1 }),
+		"zero id":        mut(func(h []byte) { copy(h[12:20], make([]byte, 8)) }),
+		"byte 24":        mut(func(h []byte) { h[24] = 1 }),
+		"count 1":        mut(func(h []byte) { h[25] = 1 }),
+		"count 0":        mut(func(h []byte) { h[25] = 0 }),
+		"pad at 29":      mut(func(h []byte) { h[29] = 1 }),
+		"pad at 37":      mut(func(h []byte) { h[37] = 1 }),
+		"pad at 44":      mut(func(h []byte) { h[44] = 1 }),
+	} {
+		if _, ok := wire.ParseChannelHeaderAt(h, 0); ok {
+			t.Errorf("%s must not parse", name)
+		}
 	}
 }
 
+const lead = 1000
+
 func TestWalk_Synthetic(t *testing.T) {
 	prelude := []byte{0xff, 0xff, 0xff, 0xff, 0xff}
-	junk := []byte{0xee, 0xee, 0xee}
 	id1 := [8]byte{1}
 	id2 := [8]byte{2}
 	b := concat(prelude,
 		envBytes(1, tlvPayload()),
-		channelHeader(id1), envBytes(2, movePayload()), envBytes(3, movePayload()),
-		junk,
-		channelHeader(id2), envBytes(4, unknownPayload()),
+		channelHeaderN(id1, lead, 2, 0), envBytes(2, movePayload()), envBytes(3, movePayload()),
+		channelHeaderN(id2, lead, 1, 0), envBytes(4, unknownPayload()),
+		terminator(lead),
 	)
 	l, err := wire.Walk(b)
 	if err != nil {
@@ -93,23 +106,22 @@ func TestWalk_Synthetic(t *testing.T) {
 		t.Fatalf("channels = %d", len(l.Channels))
 	}
 	c0, c1, c2 := l.Channels[0], l.Channels[1], l.Channels[2]
-	if c0.HasHeader || c0.Kind != wire.PayloadTLV || len(c0.Envelopes) != 1 {
+	if c0.HasHeader || c0.Kind != wire.PayloadTLV || len(c0.Envelopes) != 1 || c0.Start != 5 {
 		t.Errorf("c0 %+v", c0)
 	}
-	if !c1.HasHeader || c1.ID != id1 || c1.Kind != wire.PayloadMovement || len(c1.Envelopes) != 2 {
+	if !c1.HasHeader || c1.ID != id1 || c1.Kind != wire.PayloadMovement || len(c1.Envelopes) != 2 || c1.Start != c0.End {
 		t.Errorf("c1 %+v", c1)
 	}
-	if !c2.HasHeader || c2.ID != id2 || c2.Kind != wire.PayloadUnknown || len(c2.Envelopes) != 1 {
+	if !c2.HasHeader || c2.ID != id2 || c2.Kind != wire.PayloadUnknown || len(c2.Envelopes) != 1 || c2.Start != c1.End {
 		t.Errorf("c2 %+v", c2)
 	}
 	if l.Prelude != 5 {
 		t.Errorf("prelude = %d", l.Prelude)
 	}
-	gs := c1.End
-	if len(l.Gaps) != 1 || l.Gaps[0] != (wire.Gap{Start: gs, End: gs + 3}) {
-		t.Errorf("gaps = %v want [{%d %d}]", l.Gaps, gs, gs+3)
+	if len(l.Gaps) != 1 || l.Gaps[0] != (wire.Gap{Start: c2.End, End: len(b)}) {
+		t.Errorf("gaps = %v want the terminator [{%d %d}]", l.Gaps, c2.End, len(b))
 	}
-	if l.UnplacedBytes() != 8 {
+	if l.UnplacedBytes() != 5+12 {
 		t.Errorf("unplaced = %d", l.UnplacedBytes())
 	}
 	if got := len(l.ChannelsOf(wire.PayloadMovement)); got != 1 {
@@ -120,11 +132,12 @@ func TestWalk_Synthetic(t *testing.T) {
 	}
 }
 
-// A lone envelope-shaped run inside a gap must not end the gap.
-func TestWalk_GapLoneEnvelopeIgnored(t *testing.T) {
-	fake := envBytes(99, []byte{9, 9}) // parses alone, followed by garbage
-	garbage := concat([]byte{0xee, 0xee}, fake, []byte{0xee, 0xee, 0xee})
-	b := concat(channelHeader([8]byte{1}), envBytes(2, movePayload()), garbage, envBytes(3, movePayload()), envBytes(4, movePayload()))
+// F1: bytes 33..36 are a free u32 (1345 in the fixtures), not part of a zero
+// tail. A 45-byte header carrying one must still open a channel with all of its
+// envelopes and leave no gap but the terminator.
+func TestWalk_HeaderWithNonZeroU33(t *testing.T) {
+	b := concat(channelHeaderN([8]byte{5}, lead, 3, 1345),
+		envBytes(2, movePayload()), envBytes(3, movePayload()), envBytes(4, movePayload()), terminator(lead))
 	l, err := wire.Walk(b)
 	if err != nil {
 		t.Fatal(err)
@@ -132,48 +145,98 @@ func TestWalk_GapLoneEnvelopeIgnored(t *testing.T) {
 	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 3 {
 		t.Fatalf("channels %+v", l.Channels)
 	}
-	if len(l.Gaps) != 1 || l.Gaps[0].End-l.Gaps[0].Start != len(garbage) {
-		t.Fatalf("gaps = %v want one of %d bytes", l.Gaps, len(garbage))
+	if len(l.Gaps) != 1 || l.Gaps[0].End-l.Gaps[0].Start != 12 || l.Gaps[0].End != len(b) {
+		t.Fatalf("gaps = %v want only the 12-byte terminator", l.Gaps)
 	}
 }
 
-// Accepted limit: a coincidental pair of valid envelopes inside a gap is taken as real.
-func TestWalk_GapCoincidentalPairIsAccepted(t *testing.T) {
-	garbage := concat([]byte{0xee, 0xee}, envBytes(98, []byte{9}), envBytes(99, []byte{9}))
-	b := concat(channelHeader([8]byte{1}), envBytes(2, movePayload()), garbage, envBytes(3, movePayload()))
+// F2: a header with u33 = 4 must not lend its tail to a phantom tick-0 envelope;
+// the first envelope starts right after the 45 header bytes.
+func TestWalk_NoPhantomEnvelopeInHeaderTail(t *testing.T) {
+	b := concat(channelHeaderN([8]byte{5}, lead, 2, 4), envBytes(2, movePayload()), envBytes(3, movePayload()), terminator(lead))
 	l, err := wire.Walk(b)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Gaps) != 1 || l.Gaps[0].End-l.Gaps[0].Start != 2 {
-		t.Fatalf("gaps = %v: the leading 2 junk bytes only", l.Gaps)
+	if len(l.Channels) != 1 {
+		t.Fatalf("channels %+v", l.Channels)
 	}
-	if n := len(l.Channels[0].Envelopes); n != 4 {
-		t.Fatalf("envelopes = %d, want the coincidental pair adopted (4)", n)
+	c := l.Channels[0]
+	if len(c.Envelopes) != 2 || c.Envelopes[0].Start != c.Start+45 || c.Envelopes[0].Tick != 2 {
+		t.Fatalf("envelopes %+v", c.Envelopes)
 	}
 }
 
-// shortHeader is the trailer form: the 28 shared bytes and one zero, with the
-// first envelope following directly instead of 16 more zero bytes.
-func shortHeader(lead uint16, id [8]byte) []byte {
-	return concat(le16(lead), make([]byte, 10), id[:], le32(1), le32(2), []byte{0})
+// Bare envelopes inside a gap are never adopted, whatever their ticks.
+func TestWalk_GapEnvelopesNeverAdopted(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		t1, t2 uint32
+	}{
+		{"ticks above lead (F3)", lead + 10, lead + 11},
+		{"ticks within lead", 500, 501},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			garbage := concat([]byte{0xee, 0xee}, envBytes(tc.t1, []byte{9}), envBytes(tc.t2, []byte{9}))
+			b := concat(channelHeaderN([8]byte{1}, lead, 0, 0),
+				channelHeaderN([8]byte{2}, lead, 1, 0), envBytes(2, movePayload()), garbage)
+			l, err := wire.Walk(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(l.Channels) != 2 || len(l.Channels[1].Envelopes) != 1 {
+				t.Fatalf("channels %+v", l.Channels)
+			}
+			if len(l.Gaps) != 1 || l.Gaps[0] != (wire.Gap{Start: l.Channels[1].End, End: len(b)}) {
+				t.Fatalf("gaps = %v want one running from %d to %d", l.Gaps, l.Channels[1].End, len(b))
+			}
+		})
+	}
 }
 
-// Regression: a run of float zeros (00 00 80 3f, then zeros) satisfies the header's
-// zero anchors. The fixtures' first stage took such a run, a few bytes into the
-// prelude, for the first channel header. A real header is followed by an
-// envelope or another header; the run has neither.
+// An envelope stamped after the lead ends its channel and opens a gap.
+func TestWalk_TickAboveLeadIsAGap(t *testing.T) {
+	b := concat(channelHeaderN([8]byte{1}, lead, 0, 0),
+		channelHeaderN([8]byte{2}, lead, 2, 0), envBytes(2, movePayload()), envBytes(lead+1, movePayload()),
+		channelHeaderN([8]byte{3}, lead, 1, 0), envBytes(5, movePayload()), terminator(lead))
+	l, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Channels) != 3 || len(l.Channels[1].Envelopes) != 1 || len(l.Channels[2].Envelopes) != 1 {
+		t.Fatalf("channels %+v", l.Channels)
+	}
+	bad := l.Channels[1].End
+	if len(l.Gaps) != 2 || l.Gaps[0] != (wire.Gap{Start: bad, End: l.Channels[2].Start}) {
+		t.Fatalf("gaps = %v want the bad envelope [%d %d] then the terminator", l.Gaps, bad, l.Channels[2].Start)
+	}
+}
+
+// Ticks never decrease inside a channel.
+func TestWalk_TickBelowPreviousIsAGap(t *testing.T) {
+	b := concat(channelHeaderN([8]byte{1}, lead, 0, 0),
+		channelHeaderN([8]byte{2}, lead, 2, 0), envBytes(50, movePayload()), envBytes(49, movePayload()), terminator(lead))
+	l, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Channels) != 2 || len(l.Channels[1].Envelopes) != 1 || len(l.Gaps) != 1 || l.Gaps[0].End != len(b) {
+		t.Fatalf("channels %+v gaps %v", l.Channels, l.Gaps)
+	}
+}
+
+// A header-shaped run is not a first header unless its envelopes chain to a
+// same-lead header or the terminator. The fixtures' float runs satisfy the
+// header's zero anchors but have neither.
 func TestWalk_HeaderShapedRunInPreludeIsNotAHeader(t *testing.T) {
-	fake := concat([]byte{0x80, 0x3f, 0, 0}, make([]byte, 8), []byte{0xf7, 0xe9, 0x94, 0x89, 0x5d, 0, 0, 0}, le32(1), le32(2), make([]byte, 17))
-	garbage := []byte{0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee}
-	prelude := concat(fake, garbage)
-	b := concat(prelude, channelHeader([8]byte{7}), envBytes(2, movePayload()), envBytes(3, movePayload()))
+	fake := concat(channelHeaderN([8]byte{0xf7, 0xe9, 0x94, 0x89, 0x5d}, 0x3f80, 3, 0), bytes.Repeat([]byte{0xee}, 12))
+	b := concat(fake, channelHeaderN([8]byte{7}, lead, 2, 0), envBytes(2, movePayload()), envBytes(3, movePayload()), terminator(lead))
 	l, err := wire.Walk(b)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l.Prelude != len(prelude) {
-		t.Fatalf("prelude = %d, want %d", l.Prelude, len(prelude))
+	if l.Prelude != len(fake) {
+		t.Fatalf("prelude = %d, want %d", l.Prelude, len(fake))
 	}
 	if len(l.Channels) != 1 || l.Channels[0].ID != [8]byte{7} {
 		t.Fatalf("channels %+v", l.Channels)
@@ -182,88 +245,55 @@ func TestWalk_HeaderShapedRunInPreludeIsNotAHeader(t *testing.T) {
 
 // An empty channel (header straight into the next header) keeps both headers.
 func TestWalk_HeaderFollowedByHeader(t *testing.T) {
-	b := concat(channelHeader([8]byte{1}), channelHeader([8]byte{2}), envBytes(2, movePayload()), envBytes(3, movePayload()))
+	b := concat(channelHeader2(1), channelHeader2(2), envBytes(2, movePayload()), envBytes(3, movePayload()), terminator(lead))
 	l, err := wire.Walk(b)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Channels) != 2 || len(l.Channels[0].Envelopes) != 0 || len(l.Channels[1].Envelopes) != 2 || len(l.Gaps) != 0 {
+	if len(l.Channels) != 2 || len(l.Channels[0].Envelopes) != 0 || len(l.Channels[1].Envelopes) != 2 || len(l.Gaps) != 1 {
 		t.Fatalf("channels %+v gaps %v", l.Channels, l.Gaps)
 	}
 }
 
-// Regression: the trailer channels after the last game tick carry a 29-byte header.
-func TestWalk_TrailerShortHeader(t *testing.T) {
-	b := concat(channelHeader([8]byte{1}), envBytes(2, movePayload()), envBytes(3, movePayload()),
-		shortHeader(0x4c61, [8]byte{9, 9}), envBytes(0, []byte{0, 0, 0, 0}), envBytes(6, unknownPayload()), envBytes(7, unknownPayload()))
-	l, err := wire.Walk(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(l.Channels) != 2 || len(l.Gaps) != 0 {
-		t.Fatalf("channels %+v gaps %v", l.Channels, l.Gaps)
-	}
-	c := l.Channels[1]
-	if !c.HasHeader || c.ID != [8]byte{9, 9} || len(c.Envelopes) != 3 || c.Start != l.Channels[0].End {
-		t.Fatalf("trailer channel %+v", c)
-	}
-}
+// channelHeader2 is an empty-channel header for the test lead.
+func channelHeader2(n byte) []byte { return channelHeaderN([8]byte{n}, lead, 0, 0) }
 
-// Regression: an ordinary envelope can have the short header's shape (small tick,
-// a non-zero length byte at offset 4, zeros after it, a non-zero 8 bytes at offset
-// 12, a zero at offset 28). On the Lair round that cut a channel in half and
-// swallowed 7 MB into a gap. An envelope that parses must stay an envelope.
-func TestWalk_EnvelopeShapedLikeShortHeaderStaysAnEnvelope(t *testing.T) {
-	payload := make([]byte, 0xde)
-	copy(payload[0:8], []byte{1, 2, 3, 4, 5, 6, 7, 8}) // bytes 12..20 of the envelope: a non-zero "id"
-	// Byte 28 is zero and two envelopes start at byte 29, so every check the short
-	// form makes passes; only the rule "a parsing envelope wins" keeps it an envelope.
-	copy(payload[17:], concat(envBytes(0, []byte{1, 2, 3, 4}), envBytes(1, []byte{1, 2, 3, 4})))
-	look := envBytes(0x4775, payload)
-	if look[4] == 0 || look[28] != 0 {
-		t.Fatal("test setup: not header-shaped")
-	}
-	b := concat(channelHeader([8]byte{1}), envBytes(2, movePayload()), look, envBytes(0x4776, movePayload()))
-	l, err := wire.Walk(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 3 || len(l.Gaps) != 0 {
-		t.Fatalf("channels %+v gaps %v", l.Channels, l.Gaps)
-	}
-}
-
-// Ticks never decrease inside a channel, so a coincidental envelope pair older than
-// the channel's last tick does not end the gap; the newer real pair does.
-func TestWalk_GapPairOlderThanChannelIsIgnored(t *testing.T) {
-	older := concat(envBytes(5, []byte{9}), envBytes(6, []byte{9}))
-	garbage := concat([]byte{0xee, 0xee}, older)
-	b := concat(channelHeader([8]byte{1}), envBytes(50, movePayload()), garbage, envBytes(60, movePayload()), envBytes(61, movePayload()))
-	l, err := wire.Walk(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 3 {
-		t.Fatalf("channels %+v", l.Channels)
-	}
-	if len(l.Gaps) != 1 || l.Gaps[0].End-l.Gaps[0].Start != len(garbage) {
-		t.Fatalf("gaps = %v want one of %d bytes", l.Gaps, len(garbage))
-	}
-	assertTicksMonotonic(t, l.Channels[0])
-}
-
+// Cutting inside the last envelope keeps the envelopes before it and ends in a gap to the cut.
 func TestWalk_TruncatedMidEnvelope(t *testing.T) {
-	full := concat(channelHeader([8]byte{1}), envBytes(2, movePayload()), envBytes(3, movePayload()))
+	full := concat(channelHeaderN([8]byte{1}, lead, 3, 0), envBytes(2, movePayload()), envBytes(3, movePayload()), envBytes(4, movePayload()))
 	b := full[:len(full)-4]
 	l, err := wire.Walk(b)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 1 {
+	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 2 {
 		t.Fatalf("%+v", l.Channels)
 	}
-	if len(l.Gaps) != 1 || l.Gaps[0].End != len(b) {
-		t.Fatalf("gaps %v, want one running to the buffer end %d", l.Gaps, len(b))
+	if len(l.Gaps) != 1 || l.Gaps[0] != (wire.Gap{Start: l.Channels[0].End, End: len(b)}) {
+		t.Fatalf("gaps %v, want one from %d to the buffer end %d", l.Gaps, l.Channels[0].End, len(b))
+	}
+}
+
+// F5: the cut payload holds an envelope-shaped run that ends exactly at the cut.
+// The overrunning envelope ends the walk with a gap to the buffer end, and
+// nothing inside it is adopted.
+func TestWalk_CutPayloadHoldingEnvelopeRun(t *testing.T) {
+	inner := envBytes(7, []byte{1, 2, 3, 4})
+	tail := bytes.Repeat([]byte{0xaa}, 40)
+	payload := concat(bytes.Repeat([]byte{0xbb}, 20), inner, tail)
+	e3 := envBytes(4, payload)
+	full := concat(channelHeaderN([8]byte{1}, lead, 3, 0), envBytes(2, movePayload()), envBytes(3, movePayload()), e3)
+	b := full[:len(full)-len(tail)]
+	l, err := wire.Walk(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != 2 {
+		t.Fatalf("channels %+v", l.Channels)
+	}
+	start := l.Channels[0].End
+	if len(l.Gaps) != 1 || l.Gaps[0] != (wire.Gap{Start: start, End: len(b)}) {
+		t.Fatalf("gaps %v, want [{%d %d}]", l.Gaps, start, len(b))
 	}
 }
 
@@ -273,10 +303,19 @@ func TestWalk_Empty(t *testing.T) {
 		if !errors.Is(err, wire.ErrNoEnvelopes) {
 			t.Fatalf("%v: %v", in, err)
 		}
-		if l.Size != len(in) {
-			t.Fatal("size")
+		if l.Size != len(in) || l.Prelude != len(in) || len(l.Channels) != 0 {
+			t.Fatalf("%+v", l)
 		}
 	}
+}
+
+// wantChannels is the header count in each Y11 fixture.
+var wantChannels = map[string]int{
+	"custom_early_plant.rec":     11,
+	"custom_solid_snake.rec":     11,
+	"custom_clubhouse_short.rec": 10,
+	"custom_fortress_plant.rec":  10,
+	"custom_lair_plant_stop.rec": 10,
 }
 
 func TestWalk_Fixtures(t *testing.T) {
@@ -287,9 +326,32 @@ func TestWalk_Fixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			frac := float64(l.UnplacedBytes()) / float64(l.Size)
-			if frac > 0.005 {
-				t.Errorf("unplaced %.3f%%", frac*100)
+			want, ok := wantChannels[filepath.Base(path)]
+			if !ok {
+				t.Fatalf("no expected channel count for %s", filepath.Base(path))
+			}
+			if len(l.Channels) != want {
+				t.Errorf("channels = %d, want %d", len(l.Channels), want)
+			}
+			if got := l.UnplacedBytes(); got != l.Prelude+12 {
+				t.Errorf("unplaced = %d, want prelude %d + 12", got, l.Prelude)
+			}
+			var recs int
+			for _, c := range l.Channels {
+				assertTicksMonotonic(t, c)
+				if !c.HasHeader {
+					continue
+				}
+				if n, cnt := len(c.Envelopes), int(binary.LittleEndian.Uint32(b[c.Start+25:]))-2; n != cnt {
+					t.Errorf("channel at %d: %d envelopes, header count-2 = %d", c.Start, n, cnt)
+				}
+				ld := binary.LittleEndian.Uint32(b[c.Start:])
+				for _, e := range c.Envelopes {
+					if e.Tick > ld {
+						t.Errorf("channel at %d: tick %d > lead %d", c.Start, e.Tick, ld)
+						break
+					}
+				}
 			}
 			if n := len(l.ChannelsOf(wire.PayloadTLV)); n < 1 {
 				t.Errorf("tlv channels = %d", n)
@@ -298,47 +360,84 @@ func TestWalk_Fixtures(t *testing.T) {
 			if len(mv) < 1 {
 				t.Fatal("no movement channel")
 			}
-			var recs int
 			for _, c := range mv {
 				recs += len(c.Envelopes)
 			}
 			if recs < 1000 {
 				t.Errorf("movement envelopes = %d", recs)
 			}
-			for _, c := range l.Channels {
-				assertTicksMonotonic(t, c)
-			}
-			t.Logf("size=%d unplaced=%d (%.4f%%) channels=%d tlv=%d movement=%d movement_envelopes=%d gaps=%d prelude=%d",
-				l.Size, l.UnplacedBytes(), frac*100, len(l.Channels), len(l.ChannelsOf(wire.PayloadTLV)), len(mv), recs, len(l.Gaps), l.Prelude)
+			t.Logf("size=%d unplaced=%d prelude=%d channels=%d tlv=%d movement=%d movement_envelopes=%d gaps=%d",
+				l.Size, l.UnplacedBytes(), l.Prelude, len(l.Channels), len(l.ChannelsOf(wire.PayloadTLV)), len(mv), recs, len(l.Gaps))
 		})
 	}
 }
 
-func TestWalk_LegacyLayoutDoesNotPanic(t *testing.T) {
-	b := decompress(t, fixture(t, "Y8S1", firstRec(t, "Y8S1")))
-	l, err := wire.Walk(b)
-	if err != nil && !errors.Is(err, wire.ErrNoEnvelopes) {
-		t.Fatal(err)
+// F4: the Y8 layout has no channel headers; nothing in it may be taken for one.
+func TestWalk_LegacyLayout(t *testing.T) {
+	for _, path := range fixtureRecs(t, "Y8S1", "Y8S2") {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			b := decompress(t, path)
+			l, err := wire.Walk(b)
+			if !errors.Is(err, wire.ErrNoEnvelopes) {
+				t.Fatalf("err = %v, want ErrNoEnvelopes", err)
+			}
+			if len(l.Channels) != 0 || l.Prelude != l.Size || l.Size != len(b) {
+				t.Fatalf("channels=%d prelude=%d size=%d", len(l.Channels), l.Prelude, l.Size)
+			}
+			t.Logf("err=%v channels=%d prelude=%d size=%d", err, len(l.Channels), l.Prelude, l.Size)
+		})
 	}
-	if l.Size != len(b) {
-		t.Fatal("size")
-	}
-	t.Logf("err=%v channels=%d unplaced=%d of %d", err, len(l.Channels), l.UnplacedBytes(), l.Size)
 }
 
+// F5: cutting a fixture at any point yields either no layout or a layout whose
+// envelopes are a prefix of the full one and whose last gap runs to the cut.
 func TestWalk_Truncated(t *testing.T) {
-	b := decompress(t, fixtureRecs(t, "Y11S3")[0])
-	b = b[:len(b)/2]
-	l, err := wire.Walk(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if l.Size != len(b) {
-		t.Fatal("size")
-	}
-	for _, c := range l.Channels {
-		if c.End > len(b) {
-			t.Fatalf("channel past buffer: %d > %d", c.End, len(b))
-		}
+	for _, path := range fixtureRecs(t, "Y11S2", "Y11S3") {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			full := decompress(t, path)
+			fl, err := wire.Walk(full)
+			if err != nil {
+				t.Fatal(err)
+			}
+			type span struct{ s, e int }
+			known := map[span]bool{}
+			for _, c := range fl.Channels {
+				for _, e := range c.Envelopes {
+					known[span{e.Start, e.End}] = true
+				}
+			}
+			var noLayout, withGap int
+			for i := 1; i <= 50; i++ {
+				cut := len(full) * i / 50
+				b := full[:cut]
+				l, err := wire.Walk(b)
+				if errors.Is(err, wire.ErrNoEnvelopes) {
+					noLayout++
+					if len(l.Channels) != 0 || l.Prelude != cut {
+						t.Errorf("cut %d: ErrNoEnvelopes with channels=%d prelude=%d", cut, len(l.Channels), l.Prelude)
+					}
+					continue
+				}
+				if err != nil {
+					t.Fatalf("cut %d: %v", cut, err)
+				}
+				if n := len(l.Gaps); n == 0 || l.Gaps[n-1].End != cut {
+					t.Errorf("cut %d: gaps %v, want the last to end at the cut", cut, l.Gaps)
+				} else {
+					withGap++
+				}
+				for _, c := range l.Channels {
+					if c.End > cut {
+						t.Errorf("cut %d: channel past buffer: %d", cut, c.End)
+					}
+					for _, e := range c.Envelopes {
+						if !known[span{e.Start, e.End}] {
+							t.Errorf("cut %d: envelope [%d %d) is not in the full layout", cut, e.Start, e.End)
+						}
+					}
+				}
+			}
+			t.Logf("cuts=50 no_layout=%d last_gap_at_cut=%d", noLayout, withGap)
+		})
 	}
 }

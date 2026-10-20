@@ -124,10 +124,23 @@ func cid(hex8 string) wire.ClassID {
 	return out
 }
 
-// channelHeader builds the 45-byte header: 03 b9 00 00, 8 zero bytes, id, u32, u32, 17 zero bytes.
-func channelHeader(id [8]byte) []byte {
-	return concat([]byte{0x03, 0xb9, 0, 0}, make([]byte, 8), id[:], le32(1), le32(2), make([]byte, 17))
+// testLead is the lead u32 used by channelHeader: 03 b9 00 00.
+const testLead = 0xb903
+
+// channelHeader builds the 45-byte header of an empty channel in the observed
+// grammar: lead 03 b9 00 00, id8 at 12, count 2 at 25 (no envelopes follow).
+func channelHeader(id [8]byte) []byte { return channelHeaderN(id, testLead, 0, 0) }
+
+// channelHeaderN builds the 45-byte header of a channel that carries the given
+// number of envelopes: u32 lead at 0, a free byte 4 and zeros to 11, id8 at 12,
+// a free u32 at 20, zero at 24, u32 count (envelopes+2) at 25, zeros to 32,
+// u32 u33 at 33 and zeros to 44.
+func channelHeaderN(id [8]byte, lead uint32, envelopes int, u33 uint32) []byte {
+	return concat(le32(lead), make([]byte, 8), id[:], le32(1), []byte{0}, le32(uint32(envelopes+2)), make([]byte, 4), le32(u33), make([]byte, 8))
 }
+
+// terminator is the 12-byte buffer end: the lead plus 8 zero bytes.
+func terminator(lead uint32) []byte { return concat(le32(lead), make([]byte, 8)) }
 
 // envelope parses le32(tick)+le32(len)+le32(0)+payload at offset 0; it panics if that does not parse.
 func envelope(tick uint32, payload []byte) wire.Envelope {
