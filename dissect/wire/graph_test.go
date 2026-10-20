@@ -45,7 +45,7 @@ func TestGraph_AncestorCycle(t *testing.T) {
 	g.Add(1, wire.Token{Op: wire.OpRef, Object: a, Field: fid("27c08dca"), Target: b, Class: cid("b2216bf3")})
 	g.Add(2, wire.Token{Op: wire.OpRef, Object: b, Field: fid("27c08dca"), Target: a, Class: cid("b2216bf3")})
 	calls := 0
-	if _, ok := g.Ancestor(a, func(wire.Handle) bool { calls++; return false }); ok {
+	if _, ok := g.Ancestor(a, func(wire.Handle) bool { calls++; return calls > 16 }); ok {
 		t.Fatal("a cycle with no match must terminate as !ok")
 	}
 	if calls != 16 {
