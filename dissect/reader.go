@@ -280,6 +280,7 @@ func (r *Reader) Read() (err error) {
 			r.offset = entry.offset + 1
 			n := len(r.MatchFeedback)
 			if err = listener(r); err != nil {
+				r.settleTimelineOnStop(err)
 				return
 			}
 			r.stampNew(n)
@@ -299,6 +300,20 @@ func (r *Reader) Read() (err error) {
 	}
 	r.b = nil
 	return err
+}
+
+// settleTimelineOnStop keeps the timeline invariant when a listener stops the read early:
+// with the timeline enabled, exactly one of timeline and timelineErr is set after Read.
+// Nothing from the normal end-of-round path runs here, so the legacy output is unchanged.
+func (r *Reader) settleTimelineOnStop(err error) {
+	if !r.timelineEnabled || r.readPartial {
+		return
+	}
+	if Ok(err) {
+		r.timeline, r.timelineErr = buildTimeline(r)
+		return
+	}
+	r.timelineErr = &TimelineError{Reason: "round read stopped: " + err.Error()}
 }
 
 // ReadPartial continues reading the replay past the header until the full player list is read.

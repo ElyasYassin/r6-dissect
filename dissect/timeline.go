@@ -2,6 +2,7 @@ package dissect
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	wire "github.com/redraskal/r6-dissect/dissect/wire"
@@ -106,6 +107,10 @@ func (m *MatchReader) Rounds() []*Reader { return m.rounds }
 // Paths returns the round file paths in round order.
 func (m *MatchReader) Paths() []string { return m.paths }
 
+// maxUnplacedFraction is the share of bytes the segmenter may leave unplaced (design 5.4:
+// less than 99.5% of bytes attributed voids the timeline). Per-block TLV errors do not gate.
+const maxUnplacedFraction = 0.005
+
 type tickSpan struct {
 	start, end int
 	tick       uint32
@@ -186,6 +191,12 @@ func buildTimeline(r *Reader) (*Timeline, *TimelineError) {
 	}
 	cov.MovementRecords = ms.Records
 	cov.MovementBadFraction = ratio(ms.BadEnvelopes, ms.Envelopes)
+	if cov.UnplacedFraction > maxUnplacedFraction {
+		return nil, &TimelineError{
+			Reason:   fmt.Sprintf("segmenter left %.2f%% of bytes unplaced (limit 0.5%%)", 100*cov.UnplacedFraction),
+			Coverage: &cov,
+		}
+	}
 
 	tl := &Timeline{
 		Version:  1,

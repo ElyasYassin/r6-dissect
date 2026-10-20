@@ -424,8 +424,6 @@ func (r *Reader) completeDefuserRun() {
 	}
 }
 
-// stopDefuserRun ends an attempt that did not complete. The event is timed at the
-// last timer packet of the attempt.
 // stopDefuserRunAtRoundEnd closes a plant/disable still in progress when the round ends. The stop is an
 // inference, not a packet: it has no buffer offset (-1) and is derived.
 func (r *Reader) stopDefuserRunAtRoundEnd() {
@@ -437,6 +435,8 @@ func (r *Reader) stopDefuserRunAtRoundEnd() {
 	}
 }
 
+// stopDefuserRun ends an attempt that did not complete. The event is timed at the
+// last timer packet of the attempt.
 func (r *Reader) stopDefuserRun() {
 	run := &r.defuserRun
 	if !run.active {
