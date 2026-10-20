@@ -1,12 +1,12 @@
 package main
 
 import (
-	"runtime"
 	"bytes"
 	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/redraskal/r6-dissect/dissect"
