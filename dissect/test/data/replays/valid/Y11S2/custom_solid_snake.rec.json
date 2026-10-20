@@ -447,6 +447,18 @@
 		},
 		{
 			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "HokiesHi",
+			"target": "RYCEEEEEEEEEEEE",
+			"time": "1:50",
+			"timeInSeconds": 110,
+			"phase": "Action",
+			"elapsedSeconds": 69
+		},
+		{
+			"type": {
 				"name": "Kill",
 				"id": 0
 			},

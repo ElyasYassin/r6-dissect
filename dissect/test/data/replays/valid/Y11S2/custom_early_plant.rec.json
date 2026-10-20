@@ -393,6 +393,18 @@
 		},
 		{
 			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "O.ni.",
+			"target": "NickB2A",
+			"time": "2:43",
+			"timeInSeconds": 163,
+			"phase": "Action",
+			"elapsedSeconds": 16
+		},
+		{
+			"type": {
 				"name": "Kill",
 				"id": 0
 			},
@@ -455,6 +467,18 @@
 			"timeInSeconds": 138,
 			"phase": "Action",
 			"elapsedSeconds": 41
+		},
+		{
+			"type": {
+				"name": "DBNO",
+				"id": 11
+			},
+			"username": "MyzCNCBunny",
+			"target": "hattttttttt",
+			"time": "2:14",
+			"timeInSeconds": 134,
+			"phase": "Action",
+			"elapsedSeconds": 45
 		},
 		{
 			"type": {

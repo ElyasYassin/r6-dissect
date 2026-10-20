@@ -24,8 +24,7 @@ const (
 	Battleye
 	PlayerLeave
 	Other
-	// DBNO and Revive are reserved and not currently emitted; they keep the numeric
-	// IDs of DefuserPlantStop and DefuserDisableStop stable.
+	// DBNO and Revive are read from the player health state (Y10S4+), see health.go.
 	DBNO
 	Revive
 	DefuserPlantStop
@@ -46,6 +45,9 @@ type MatchUpdate struct {
 	TeamKill       bool            `json:"teamKill,omitempty"`
 	// Y10S4+: the player whose scoreboard kill counter increased right before this kill packet
 	scoreboardKiller string
+	// Y10S4+: for a DBNO read from the health state, the index+1 of its transition in
+	// Reader.healthTransitions (0 otherwise)
+	healthTransition int
 }
 
 func (i MatchUpdateType) MarshalJSON() (text []byte, err error) {
