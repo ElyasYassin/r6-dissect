@@ -15,6 +15,7 @@ func readPlayer(r *Reader) error {
 	spawnIndicator := []byte{0xAF, 0x98, 0x99, 0xCA}
 	profileIDIndicator := []byte{0x8A, 0x50, 0x9B, 0xD0}
 	//unknownIndicator := []byte{0x22, 0xEE, 0xD4, 0x45, 0xC8, 0x08} // maybe player appearance?
+	playerObject := r.playerObjectBefore(r.offset - 5)
 	r.playersRead++
 	defer func() {
 		if r.playersRead == 10 {
@@ -69,6 +70,10 @@ func readPlayer(r *Reader) error {
 	if err != nil {
 		return err
 	}
+	var slotID []byte
+	if r.Header.CodeVersion >= Y10S4 {
+		slotID = r.peekPlayerSlotID()
+	}
 	if err := r.Seek(spawnIndicator); err != nil {
 		return err
 	}
@@ -108,6 +113,7 @@ func readPlayer(r *Reader) error {
 	}
 	// Older versions of siege did not include profile ids
 	profileID := ""
+	startingRoom := ""
 	var unknownId uint64
 	if len(r.Header.RecordingProfileID) > 0 {
 		if err = r.Seek(profileIDIndicator); err != nil {
@@ -117,6 +123,7 @@ func readPlayer(r *Reader) error {
 		if err != nil {
 			return err
 		}
+		startingRoom = r.readStartingRoom(r.offset)
 		if err = r.Skip(5); err != nil { // 22eed445c8
 			return err
 		}
@@ -136,6 +143,9 @@ func readPlayer(r *Reader) error {
 		Spawn:     spawn,
 		DissectID: id,
 		uiID:      uiID,
+		slotID:    slotID,
+
+		StartingRoom: startingRoom,
 	}
 	if p.Operator != Recruit && p.Operator.Role() == Defense {
 		p.Spawn = r.Header.Site // We cannot detect the spawn here on defense
@@ -147,8 +157,11 @@ func readPlayer(r *Reader) error {
 		Hex("DissectID", id).
 		Uint64("ID", p.ID).
 		Uint64("uiID", p.uiID).
-		Str("spawn", spawn).Send()
+		Hex("slotID", p.slotID).
+		Str("spawn", spawn).
+		Str("startingRoom", startingRoom).Send()
 	found := false
+	foundIndex := -1
 	for i, existing := range r.Header.Players {
 		if existing.Username == p.Username ||
 			(r.Header.CodeVersion < Y8S2 && existing.ID == p.ID && p.ID != 0) ||
@@ -160,17 +173,30 @@ func readPlayer(r *Reader) error {
 			r.Header.Players[i].Spawn = p.Spawn
 			r.Header.Players[i].DissectID = p.DissectID
 			r.Header.Players[i].uiID = p.uiID
+			if p.slotID != nil {
+				r.Header.Players[i].slotID = p.slotID
+			}
+			if r.Header.Players[i].StartingRoom == "" {
+				r.Header.Players[i].StartingRoom = p.StartingRoom
+			}
 			found = true
+			foundIndex = i
 			break
 		}
 	}
 	if !found && len(username) > 0 {
 		r.Header.Players = append(r.Header.Players, p)
+		foundIndex = len(r.Header.Players) - 1
+	}
+	if foundIndex >= 0 {
+		r.readPlayerOrder = append(r.readPlayerOrder, foundIndex)
+		r.trackPlayerObject(playerObject, r.Header.Players[foundIndex])
 	}
 	return err
 }
 
 func readAtkOpSwap(r *Reader) error {
+	patternStart := r.offset - 5
 	op, err := r.Uint64()
 	if err != nil {
 		return err
@@ -202,28 +228,52 @@ func readAtkOpSwap(r *Reader) error {
 		return nil
 	}
 	// after Y9S3 caster view overhaul
-	if err = r.Skip(402); err != nil {
-		return err
-	}
-	// id shows up in player data and in op swaps afaik
-	id, err := r.Uint64()
-	if err != nil {
-		return err
-	}
-	for i, p := range r.Header.Players {
-		if p.uiID == id {
-			r.Header.Players[i].Operator = o
-			u := MatchUpdate{
-				Type:          OperatorSwap,
-				Username:      p.Username,
-				Time:          r.timeRaw,
-				TimeInSeconds: r.time,
-				Operator:      o,
+	// Y11S2: the swap is a property of the player object,
+	// 23 <player object> F93911F2 08 <u64> 22 A9260BE4 08 <op>
+	objectIndex := r.playerIndexByObject(r.opSwapPlayerObject(patternStart))
+	found := false
+	if err = r.Skip(402); err == nil {
+		// id shows up in player data and in op swaps afaik
+		var id uint64
+		if id, err = r.Uint64(); err == nil {
+			for i, p := range r.Header.Players {
+				if p.uiID == id {
+					r.swapOperator(i, o)
+					found = true
+					break
+				}
 			}
-			r.MatchFeedback = append(r.MatchFeedback, u)
-			log.Debug().Interface("match_update", u).Send()
-			break
 		}
 	}
-	return nil
+	if !found && objectIndex > -1 {
+		r.swapOperator(objectIndex, o)
+	}
+	return err
+}
+
+func (r *Reader) swapOperator(i int, o Operator) {
+	r.Header.Players[i].Operator = o
+	u := MatchUpdate{
+		Type:          OperatorSwap,
+		Username:      r.Header.Players[i].Username,
+		Time:          r.timeRaw,
+		TimeInSeconds: r.time,
+		Operator:      o,
+	}
+	r.MatchFeedback = append(r.MatchFeedback, u)
+	log.Debug().Interface("match_update", u).Send()
+}
+
+// opSwapPlayerObject returns the player object an operator property
+// starting at offset belongs to, or 0.
+func (r *Reader) opSwapPlayerObject(offset int) uint64 {
+	const prefix = 1 + handleSize + 4 + 1 + 8 // 23 <player object> F93911F2 08 <u64>
+	if offset < prefix || offset > len(r.b) {
+		return 0
+	}
+	b := r.b[offset-prefix : offset]
+	if b[0] != 0x23 || !bytes.Equal(b[1+handleSize:1+handleSize+5], []byte{0xF9, 0x39, 0x11, 0xF2, 0x08}) {
+		return 0
+	}
+	return readHandle(b[1 : 1+handleSize])
 }

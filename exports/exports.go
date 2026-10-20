@@ -4,9 +4,11 @@ package main
 import "C"
 import (
 	"encoding/json"
+	"os"
+	"unsafe"
+
 	"github.com/redraskal/r6-dissect/dissect"
 	"github.com/rs/zerolog"
-	"os"
 )
 
 func marshalToString(v any) string {
@@ -35,6 +37,9 @@ func convertErrorForExport(err error) string {
 	})
 }
 
+// dissect_read parses a .rec file or match folder and returns the result as a JSON string.
+// The returned string is allocated with malloc and must be released with dissect_free.
+//
 //export dissect_read
 func dissect_read(input *C.char) *C.char {
 	zerolog.SetGlobalLevel(zerolog.Disabled)
@@ -61,10 +66,6 @@ func dissect_read(input *C.char) *C.char {
 			return C.CString(res)
 		}
 		j := m.Data()
-		if err != nil {
-			res := convertErrorForExport(err)
-			return C.CString(res)
-		}
 		res := convertForExport(j)
 		return C.CString(res)
 	} else {
@@ -89,6 +90,13 @@ func dissect_read(input *C.char) *C.char {
 		})
 		return C.CString(res)
 	}
+}
+
+// dissect_free releases a string returned by dissect_read.
+//
+//export dissect_free
+func dissect_free(ptr *C.char) {
+	C.free(unsafe.Pointer(ptr))
 }
 
 func main() {}

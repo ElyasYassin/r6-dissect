@@ -24,18 +24,28 @@ const (
 	Battleye
 	PlayerLeave
 	Other
+	// DBNO and Revive are reserved and not currently emitted; they keep the numeric
+	// IDs of DefuserPlantStop and DefuserDisableStop stable.
+	DBNO
+	Revive
+	DefuserPlantStop
+	DefuserDisableStop
 )
 
 type MatchUpdate struct {
-	Type                   MatchUpdateType `json:"type"`
-	Username               string          `json:"username,omitempty"`
-	Target                 string          `json:"target,omitempty"`
-	Headshot               *bool           `json:"headshot,omitempty"`
-	Time                   string          `json:"time"`
-	TimeInSeconds          float64         `json:"timeInSeconds"`
-	Message                string          `json:"message,omitempty"`
-	Operator               Operator        `json:"operator,omitempty"`
-	usernameFromScoreboard string
+	Type           MatchUpdateType `json:"type"`
+	Username       string          `json:"username,omitempty"`
+	Target         string          `json:"target,omitempty"`
+	Headshot       *bool           `json:"headshot,omitempty"`
+	Time           string          `json:"time"`
+	TimeInSeconds  float64         `json:"timeInSeconds"`
+	Phase          RoundPhase      `json:"phase,omitempty"`
+	ElapsedSeconds float64         `json:"elapsedSeconds"`
+	Message        string          `json:"message,omitempty"`
+	Operator       Operator        `json:"operator,omitempty"`
+	TeamKill       bool            `json:"teamKill,omitempty"`
+	// Y10S4+: the player whose scoreboard kill counter increased right before this kill packet
+	scoreboardKiller string
 }
 
 func (i MatchUpdateType) MarshalJSON() (text []byte, err error) {
@@ -105,7 +115,6 @@ func readMatchFeedback(r *Reader) error {
 		if empty {
 			log.Debug().Str("warn", "kill username empty").Send()
 		}
-		// No idea what these 15 bytes mean (kill type?)
 		if err = r.Skip(15); err != nil {
 			return err
 		}
@@ -113,18 +122,24 @@ func readMatchFeedback(r *Reader) error {
 		if err != nil {
 			return err
 		}
-		if empty && len(target) > 0 {
-			u := MatchUpdate{
-				Type:          Death,
-				Username:      target,
-				Time:          r.timeRaw,
-				TimeInSeconds: r.time,
+		log.Debug().Str("target", target).Msg("kill target parsed")
+		if empty {
+			if len(target) > 0 {
+				if r.isDead(target) {
+					log.Debug().Str("username", target).Msg("duplicate death filtered (player already dead)")
+					return nil
+				}
+				u := MatchUpdate{
+					Type:          Death,
+					Username:      target,
+					Time:          r.timeRaw,
+					TimeInSeconds: r.time,
+				}
+				r.stamp(&u)
+				r.MatchFeedback = append(r.MatchFeedback, u)
+				log.Debug().Interface("match_update", u).Send()
+				log.Debug().Msg("kill username empty because of death")
 			}
-			r.MatchFeedback = append(r.MatchFeedback, u)
-			log.Debug().Interface("match_update", u).Send()
-			log.Debug().Msg("kill username empty because of death")
-			return nil
-		} else if empty {
 			return nil
 		}
 		u := MatchUpdate{
@@ -134,6 +149,7 @@ func readMatchFeedback(r *Reader) error {
 			Time:          r.timeRaw,
 			TimeInSeconds: r.time,
 		}
+		r.stamp(&u)
 		if err = r.Skip(56); err != nil {
 			return err
 		}
@@ -146,21 +162,45 @@ func readMatchFeedback(r *Reader) error {
 			*headshotPtr = true
 		}
 		u.Headshot = headshotPtr
-		// Ignore duplicates
+		log.Debug().
+			Str("killer", username).
+			Str("target", target).
+			Bool("headshot", headshot == 1).
+			Msg("kill event parsed")
+		killerIdx := r.PlayerIndexByUsername(u.Username)
+		targetIdx := r.PlayerIndexByUsername(u.Target)
+		if killerIdx >= 0 && targetIdx >= 0 {
+			killerTeam := r.Header.Players[killerIdx].TeamIndex
+			targetTeam := r.Header.Players[targetIdx].TeamIndex
+			if killerTeam == targetTeam {
+				log.Debug().
+					Str("killer", u.Username).
+					Str("target", u.Target).
+					Int("team", killerTeam).
+					Msg("team kill")
+				u.TeamKill = true
+			}
+		}
+		// The game re-sends kill packets for the same death (same killer, target and
+		// headshot flag, up to ~90 seconds later). The first packet is the actual kill,
+		// so any later packet for a target that is already dead is a duplicate.
 		for _, val := range r.MatchFeedback {
-			if val.Type == Kill && val.Username == u.Username && val.Target == u.Target {
+			if (val.Type == Kill && val.Target == u.Target) || (val.Type == Death && val.Username == u.Target) {
+				log.Debug().
+					Str("killer", u.Username).
+					Str("target", u.Target).
+					Float64("existing_time", val.ElapsedSeconds).
+					Float64("new_time", u.ElapsedSeconds).
+					Msg("duplicate kill filtered (target already dead)")
 				return nil
 			}
 		}
-		// removing the elimination username for now
-		if r.lastKillerFromScoreboard != username {
-			u.usernameFromScoreboard = r.lastKillerFromScoreboard
-		}
+		u.scoreboardKiller = r.lastScoreboardKiller
+		r.lastScoreboardKiller = ""
 		r.MatchFeedback = append(r.MatchFeedback, u)
 		log.Debug().Interface("match_update", u).Send()
 		return nil
 	}
-	// TODO: Y9S1 may have removed or modified other match feedback options
 	if r.Header.CodeVersion >= Y9S1 {
 		return nil
 	}
@@ -196,4 +236,15 @@ func readMatchFeedback(r *Reader) error {
 	r.MatchFeedback = append(r.MatchFeedback, u)
 	log.Debug().Interface("match_update", u).Send()
 	return nil
+}
+
+// isDead reports whether username already died in this round, either as the target of a
+// Kill or through a Death event.
+func (r *Reader) isDead(username string) bool {
+	for _, u := range r.MatchFeedback {
+		if (u.Type == Kill && u.Target == username) || (u.Type == Death && u.Username == username) {
+			return true
+		}
+	}
+	return false
 }

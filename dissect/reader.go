@@ -18,20 +18,34 @@ import (
 var strSep = []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 type Reader struct {
-	b                        []byte
-	offset                   int
-	queries                  [][]byte
-	listeners                [][]func(r *Reader) error
-	time                     float64 // in seconds
-	timeRaw                  string  // raw dissect format
-	lastDefuserPlayerIndex   int
-	planted                  bool
-	readPartial              bool // reads up to the player info packets
-	playersRead              int
-	lastKillerFromScoreboard string
-	Header                   Header        `json:"header"`
-	MatchFeedback            []MatchUpdate `json:"matchFeedback"`
-	Scoreboard               Scoreboard
+	b                      []byte
+	offset                 int
+	queries                [][]byte
+	listeners              [][]func(r *Reader) error
+	time                   float64 // in seconds
+	timeRaw                string  // raw dissect format
+	clock                  roundClock
+	lastDefuserPlayerIndex int
+	planted                bool
+	defuserDisabling       bool
+	lastDefuserTimer       float64
+	defuserPawnToSlot      map[[4]byte][4]byte // Y10S4+: maps a pawn entity ID to its player slot entity ID
+	defuserRun             defuserRun          // Y10S4+: the plant/disable action the defuser timer currently belongs to
+	readPartial            bool                // reads up to the player info packets
+	playersRead            int
+	lastScoreboardKiller   string             // Y10S4+: player whose scoreboard kill counter increased last, until the next kill packet
+	pendingSBIDs           [][4]byte          // Y10S4+: sbIDs in header-entry order for deferred mapping
+	readPlayerOrder        []int              // Y10S4+: player indices in readPlayer order
+	scoreboardIDToPlayer   map[[4]byte]int    // Y10S4+: maps scoreboard entry ID to player index
+	scoreboardInitialKills map[[4]byte]uint32 // Y10S4+: cumulative kills at round start per sbID
+	scoreboardFinalKills   map[int]uint32     // Y10S4+: latest cumulative kills seen per player index
+	pendingDefuserPlantIdx int                // Y10S4+: index into MatchFeedback for DefuserPlantComplete/DisableComplete with unknown player (-1 = none)
+	pendingDefuserIsPlant  bool               // Y10S4+: true if pending event is plant (attacker), false if disable (defender)
+	lastPlayerScores       map[int]uint32     // Y10S4+: last known score per player index (for detecting +100 plant/disable bonus)
+	inventory              *inventoryState    // Y8S1+: player inventories for loadouts
+	Header                 Header             `json:"header"`
+	MatchFeedback          []MatchUpdate      `json:"matchFeedback"`
+	Scoreboard             Scoreboard
 }
 
 // NewReader decompresses in using zstd and
@@ -44,7 +58,14 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 	}
 	log.Debug().Bool("chunkedCompression (>=Y8S4)", chunkedCompression).Send()
 	r = &Reader{
-		readPartial: false,
+		readPartial:            false,
+		lastDefuserPlayerIndex: -1,
+		pendingDefuserPlantIdx: -1,
+		scoreboardIDToPlayer:   make(map[[4]byte]int),
+		scoreboardInitialKills: make(map[[4]byte]uint32),
+		scoreboardFinalKills:   make(map[int]uint32),
+		lastPlayerScores:       make(map[int]uint32),
+		defuserPawnToSlot:      make(map[[4]byte][4]byte),
 	}
 	if chunkedCompression {
 		if err = r.readChunkedData(br); err != nil {
@@ -67,9 +88,13 @@ func NewReader(in io.Reader) (r *Reader, err error) {
 	}
 	r.Listen([]byte{0x59, 0x34, 0xE5, 0x8B, 0x04}, readMatchFeedback)
 	r.Listen([]byte{0x22, 0xA9, 0xC8, 0x58, 0xD9}, readDefuserTimer)
+	if r.Header.CodeVersion >= Y10S4 {
+		r.Listen(defuserPawnIndicator, readDefuserPawn)
+	}
 	r.Listen([]byte{0xEC, 0xDA, 0x4F, 0x80}, readScoreboardScore)
 	r.Listen([]byte{0x4D, 0x73, 0x7F, 0x9E}, readScoreboardAssists)
 	r.Listen([]byte{0x1C, 0xD2, 0xB1, 0x9D}, readScoreboardKills)
+	r.listenLoadouts()
 	return r, err
 }
 
@@ -163,20 +188,50 @@ type match struct {
 
 func (r *Reader) worker(start int, end int, wg *sync.WaitGroup, matches chan<- match) {
 	defer wg.Done()
+	// indexes[j] is the number of bytes of query j matched so far. Only queries
+	// with a partial match (active) or whose first byte matches the current byte
+	// are compared, which is equivalent to comparing every query at every byte.
 	indexes := make([]int, len(r.queries))
+	var startsWith [256][]int
+	for j, query := range r.queries {
+		startsWith[query[0]] = append(startsWith[query[0]], j)
+	}
+	active := make([]int, 0, len(r.queries))
+	next := make([]int, 0, len(r.queries))
+	started := make([]int, 0, len(r.queries))
 	log.Debug().Int("start", start).Int("end", end).Msg("worker")
 	for i := start; i <= end; i++ {
-		for j, query := range r.queries {
-			if r.b[i] == query[indexes[j]] {
+		c := r.b[i]
+		started = started[:0]
+		for _, j := range startsWith[c] {
+			if indexes[j] == 0 {
+				started = append(started, j)
+			}
+		}
+		next = next[:0]
+		for _, j := range active {
+			query := r.queries[j]
+			if c == query[indexes[j]] {
 				indexes[j]++
 				if indexes[j] == len(query) {
 					indexes[j] = 0
 					matches <- match{i, j}
+				} else {
+					next = append(next, j)
 				}
 			} else {
 				indexes[j] = 0
 			}
 		}
+		for _, j := range started {
+			if len(r.queries[j]) == 1 {
+				matches <- match{i, j}
+				continue
+			}
+			indexes[j] = 1
+			next = append(next, j)
+		}
+		active, next = next, active
 	}
 }
 
@@ -220,13 +275,21 @@ func (r *Reader) Read() (err error) {
 	for _, entry := range matches {
 		for _, listener := range r.listeners[entry.listenerIndex] {
 			r.offset = entry.offset + 1
+			n := len(r.MatchFeedback)
 			if err = listener(r); err != nil {
 				return
 			}
+			r.stampNew(n)
 		}
 	}
 	if !r.readPartial {
+		n := len(r.MatchFeedback)
+		// a plant/disable still in progress when the round ends did not complete
+		r.stopDefuserRun()
 		r.roundEnd()
+		r.stampNew(n)
+		r.backfillLeadingUpdates()
+		r.applyLoadouts()
 	}
 	r.b = nil
 	return err
@@ -250,7 +313,7 @@ func (r *Reader) Listen(pattern []byte, callback func(r *Reader) error) {
 	for i = 0; i < len(r.queries); i++ {
 		if bytes.Equal(r.queries[i], pattern) {
 			r.listeners[i] = append(r.listeners[i], callback)
-			break
+			return
 		}
 	}
 	r.queries = append(r.queries, pattern)
@@ -323,7 +386,7 @@ func (r *Reader) String() (string, error) {
 }
 
 func (r *Reader) Uint32() (uint32, error) {
-	if err := r.Skip(1); err != nil { // size- unnecessary since we already know the length
+	if err := r.Skip(1); err != nil {
 		return 0, err
 	}
 	b, err := r.Bytes(4)
@@ -346,4 +409,21 @@ func (r *Reader) Uint64() (uint64, error) {
 
 func (r *Reader) Write(w io.Writer) (n int, err error) {
 	return w.Write(r.b)
+}
+
+func (r *Reader) Float32() (float32, error) {
+	b, err := r.Bytes(4)
+	if err != nil {
+		return 0, err
+	}
+	return math.Float32frombits(binary.LittleEndian.Uint32(b)), nil
+}
+
+// stampNew stamps match updates appended since index n that do not have a phase yet.
+func (r *Reader) stampNew(n int) {
+	for i := n; i < len(r.MatchFeedback); i++ {
+		if r.MatchFeedback[i].Phase == "" {
+			r.stamp(&r.MatchFeedback[i])
+		}
+	}
 }

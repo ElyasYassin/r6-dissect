@@ -5,6 +5,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   releases-matrix:
     runs-on: ubuntu-latest
@@ -13,18 +16,58 @@ jobs:
         goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - shell: bash
         name: Set env variables
         run: |
           c=$(git rev-parse --short HEAD); b=$(git name-rev --name-only "$c"); echo "version=$c ($b branch)" >> $GITHUB_ENV
-          echo "ext=$( if [ '${{ matrix.goos }}' = 'windows' ]; then echo 'dll'; elif [ '${{ matrix.goos }}' = 'darwin' ]; then echo 'dylib'; elif [ '${{ matrix.goos }}' = 'linux' ]; then echo 'so'; fi )" >> $GITHUB_ENV
       - uses: wangyoucao577/go-release-action@v1.52
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "1.23.3"
-          pre_command: "go build -o libr6dissect.${{ env.ext }} -buildmode=c-shared exports/exports.go"
-          extra_files: "LICENSE README.md libr6dissect.h libr6dissect.${{ env.ext }}"
+          goversion: "1.26"
+          extra_files: "LICENSE README.md"
           ldflags: "-X 'main.Version=${{ env.version }}'"
+
+  # The shared library uses cgo, which cannot be cross-compiled without a C toolchain
+  # for the target platform. Build it natively on each OS instead (see #67).
+  shared-library:
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-latest, goos: linux, goarch: amd64, ext: so }
+          - { runner: ubuntu-24.04-arm, goos: linux, goarch: arm64, ext: so }
+          - { runner: windows-latest, goos: windows, goarch: amd64, ext: dll }
+          - { runner: macos-latest, goos: darwin, goarch: arm64, ext: dylib }
+          - { runner: macos-latest, goos: darwin, goarch: amd64, ext: dylib, cc: "clang -arch x86_64" }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CC: ${{ matrix.cc }}
+        run: |
+          if [ -z "$CC" ]; then unset CC; fi
+          name=libr6dissect-${{ matrix.goos }}-${{ matrix.goarch }}
+          go build -buildmode=c-shared -o dist/$name.${{ matrix.ext }} exports/exports.go
+          mv dist/$name.h dist/libr6dissect.h
+          cd dist && tar -czf ../$name.tar.gz *
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libr6dissect-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: libr6dissect-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+      - name: Upload to release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" libr6dissect-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz --clobber

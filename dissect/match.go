@@ -153,7 +153,7 @@ func (m *MatchReader) WriteExcel(out io.Writer) error {
 		}
 
 		for _, s := range r.PlayerStats() {
-			c.Down(1).Left(8).Str(s.Username)
+			c.Down(1).Left(10).Str(s.Username)
 			c.Right(1).Int(s.TeamIndex)
 			c.Right(1).Int(s.Kills)
 			c.Right(1).Bool(s.Died)
@@ -165,7 +165,7 @@ func (m *MatchReader) WriteExcel(out io.Writer) error {
 			log.Debug().Interface("round_player_stats", s).Send()
 		}
 
-		c.Down(2).Left(8).Heading("Round info")
+		c.Down(2).Left(10).Heading("Round info")
 		c.Down(1).Str("Name")
 		c.Right(1).Str("Value")
 		c.Right(1).Str("Time")
@@ -254,7 +254,7 @@ func (m *MatchReader) WriteExcel(out io.Writer) error {
 	c.Right(1).Str("Headshots")
 
 	for _, s := range m.PlayerStats() {
-		c.Down(1).Left(8).Str(s.Username)
+		c.Down(1).Left(10).Str(s.Username)
 		c.Right(1).Int(s.TeamIndex)
 		c.Right(1).Int(s.Rounds)
 		c.Right(1).Int(s.Kills)
