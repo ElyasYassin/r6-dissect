@@ -137,7 +137,11 @@ type msPhase struct { Phase RoundPhase; Tick uint32; StartMs uint32; BaseMs int6
 type msClock struct { /* samples []msSample{Tick, Ms}; phases []msPhase; gameState wire.Handle */ }
 func newMsClock() *msClock
 // observe feeds one TLV token: the first value token carrying fieldRoundTimer fixes the game-state object; value tokens of
-// fieldRoundClockMs on that object are samples. A new phase starts on the first sample and whenever ms > previous ms + 1000.
+// fieldRoundClockMs on that object are samples. A new phase starts on the first sample and whenever the clock jumps by more
+// than 1000 ms in EITHER direction (amended 2026-10-20, PR #7 review: a plant with more than 45 s of action time left makes the
+// clock DROP to 45000; the original rise-only rule missed two of the five fixtures); a discontinuous drop to exactly 0 is the
+// round-end reset — not recorded as a sample, starts no phase (the legacy clock treats 0 the same way). Known limit: a plant
+// with 44–46 s left makes no jump either way (run-log candidate C-RT-13).
 // Phase labels follow time.go: the first phase is Prep when its first sample is <= 60000 ms, else Action; the phase after
 // Action is PostPlant; a phase after PostPlant is also PostPlant.
 func (c *msClock) observe(tick uint32, t wire.Token)
@@ -155,10 +159,10 @@ func (c *msClock) sampleBefore(tick uint32) (ms uint32, ok bool)
 func TestMsClock_Phases(t *testing.T) {
     c := newMsClock()
     c.observe(10, clockTok(fieldRoundTimer, 44))
-    for i, ms := range []uint32{44832, 44757, 1200, 80} { c.observe(uint32(20+i*9), clockTok(fieldRoundClockMs, ms)) }
+    for i, ms := range []uint32{44832, 44757, 44720, 44683} { c.observe(uint32(20+i*9), clockTok(fieldRoundClockMs, ms)) }   // amended: a continuous Prep series
     c.observe(100, clockTok(fieldRoundClockMs, 179917))   // jump up: Action
     c.observe(109, clockTok(fieldRoundClockMs, 179880))
-    c.observe(500, clockTok(fieldRoundClockMs, 45000))    // jump up: PostPlant
+    c.observe(500, clockTok(fieldRoundClockMs, 45000))    // jump DOWN (179880 -> 45000): PostPlant, a drop — the amended rule
     c.observe(509, clockTok(fieldRoundClockMs, 44960))
     ph := c.phases()
     want := []msPhase{{PrepPhase, 20, 44832, 0}, {ActionPhase, 100, 179917, 0}, {PostPlantPhase, 500, 45000, 179917 - 179880}}
@@ -175,6 +179,9 @@ func TestMsClock_PrepOnly(t *testing.T) {   // Review Focus 2
     if _, _, el, _ := c.at(9); el != -44000 { t.Fatal(el) }
 }
 func TestMsClock_IgnoresOtherObjects(t *testing.T) { ... a fieldRoundClockMs token on a different object before the timer is seen is not a sample }
+func TestMsClock_RoundEndResetIsNotASample(t *testing.T) { ... 179917 @2, 179880 @9, 0 @16 → one phase; at(16) = Action, 179880, elapsed 37 }   // amended 2026-10-20
+func TestMsClock_PlantAboveCountdown(t *testing.T) { ... 100035 @2, 100000 @10, 45000 @20 → two phases, phases()[1] == {PostPlant, 20, 45000, 35} }
+func TestMsClock_Fixtures(t *testing.T) { ... early_plant PostPlant {12147, 44977, 55881}; solid_snake {17517, 44946, 100895}; fortress {45872, 44938, 167292}; clubhouse/lair exactly two phases }
 ```
 
 - [ ] **Step 2: Run to verify failure** — `go test ./dissect/ -run TestMsClock` → `undefined: newMsClock`.
