@@ -45,13 +45,16 @@ Orchestrator-owned cross-cutting items: the run log (committed at wave boundarie
 ## Worktree ledger
 
 - `worktree: /home/prest/r6-dissect-worktrees/orchestrator branch=track/rec-timeline for=orchestrator`
-
-## Event log
-
-- 2026-10-20 14:34Z gate zero verified (table above); track branch cut from origin/fork/integration @ 76ae9d9; docs copied onto the track.
+- `worktree: /home/prest/r6-dissect-worktrees/w1-fixtures-walker branch=feat/rt01-fixtures-walker for=W1`
 
 ## Findings (one line per reviewer finding, newest first)
 
 ## Candidates
 
 ## Observations
+
+## Event log
+
+- 2026-10-20 14:34Z gate zero verified (table above); track branch cut from origin/fork/integration @ 76ae9d9; docs copied onto the track.
+- 2026-10-20 14:36Z W1 dispatched (impl-w1, Sonnet, background) in /home/prest/r6-dissect-worktrees/w1-fixtures-walker; track pushed at cb2f7fb.
+- 2026-10-20 14:41Z PAUSE requested by the operator (session restart). impl-w1 and its watcher stopped. W1 state: Task 1 committed at `2b40d71` (fixtures + goldens); Task 2 in progress — partial `dissect/wire/` and the `Reader.Data()` edit WIP-committed by the orchestrator as `69152d2` on `feat/rt01-fixtures-walker` (no PR yet, nothing pushed). RESUME: dispatch a fresh Sonnet worker `impl-w1b` into the SAME worktree `/home/prest/r6-dissect-worktrees/w1-fixtures-walker` with the W1 dispatch prompt plus "the branch already holds Task 1 and a WIP commit of Task 2; `git status` first, continue Task 2 from the WIP state, amend or add commits freely"; then preflight and `rev-<PR#>` as planned. Do not re-dispatch into a fresh worktree (duplicate branch/PR).
