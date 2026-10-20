@@ -112,8 +112,17 @@ func TestDecodeMovement_Fixtures(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if st.Records < 50000 { // plan said 100000; the shortest fixture has 60796
-				t.Errorf("records = %d", st.Records)
+			// Plan floors: 100000 records and ten entities with 3000 records each.
+			// custom_early_plant.rec (Y11S2) is a short round and cannot reach them:
+			// measured records=60796 groups=2707, and its tenth-busiest entity has
+			// 1609 records (an entity appears at most once per group). Only that
+			// fixture takes the lower floors.
+			minRecords, minBusy := 100000, 3000
+			if filepath.Base(path) == "custom_early_plant.rec" {
+				minRecords, minBusy = 50000, 1500
+			}
+			if st.Records < minRecords {
+				t.Errorf("records = %d, want >= %d", st.Records, minRecords)
 			}
 			if !st.TicksMonotonic {
 				t.Error("ticks not monotonic")
@@ -126,16 +135,17 @@ func TestDecodeMovement_Fixtures(t *testing.T) {
 			if frac > 0.003 {
 				t.Errorf("bad bytes %.3f%%", frac*100)
 			}
-			// Ten always-present movers (player pawns). The plan said 3000 records, but the
-			// shortest fixture has under 3000 groups, so no entity can reach it there.
+			// At least ten frequently present entities (the player pawns and a few
+			// more); only about four entities appear in nine of ten groups, so the
+			// floor pins "frequently present", not "always present".
 			var busy int
 			for _, n := range entities {
-				if n >= 1500 {
+				if n >= minBusy {
 					busy++
 				}
 			}
 			if busy < 10 {
-				t.Errorf("busy entities (>= 1500 records) = %d, want >= 10", busy)
+				t.Errorf("busy entities (>= %d records) = %d, want >= 10", minBusy, busy)
 			}
 			t.Logf("records=%d groups=%d bad=%d badBytes=%d (%.4f%%) busy=%d ticks=%d..%d",
 				st.Records, st.Groups, st.BadEnvelopes, st.BadBytes, frac*100, busy, st.FirstTick, st.LastTick)
@@ -185,4 +195,27 @@ func TestDecodeMovement_TicksNotMonotonic(t *testing.T) {
 	if err != nil || st.TicksMonotonic || st.FirstTick != 5 || st.LastTick != 4 || st.Records != 2 {
 		t.Errorf("stats = %+v err=%v", st, err)
 	}
+}
+
+// Ticks may repeat, and a later channel may start below an earlier channel's
+// last tick: monotonicity is judged within a channel only.
+func TestDecodeMovement_TicksMonotonicEdges(t *testing.T) {
+	rec := concat(le16(1), mvRec(h("5cc804f0"), mvTag60, nil))
+	t.Run("equal consecutive ticks", func(t *testing.T) {
+		l := wire.Layout{Channels: []wire.Channel{{Kind: wire.PayloadMovement, Envelopes: []wire.Envelope{envelope(7, rec), envelope(7, rec)}}}}
+		st, err := wire.DecodeMovement(nil, l, nil)
+		if err != nil || !st.TicksMonotonic || st.FirstTick != 7 || st.LastTick != 7 {
+			t.Errorf("stats = %+v err=%v", st, err)
+		}
+	})
+	t.Run("second channel starts below the first channel's last tick", func(t *testing.T) {
+		l := wire.Layout{Channels: []wire.Channel{
+			{Kind: wire.PayloadMovement, Envelopes: []wire.Envelope{envelope(5, rec), envelope(9, rec)}},
+			{Kind: wire.PayloadMovement, Envelopes: []wire.Envelope{envelope(2, rec), envelope(3, rec)}},
+		}}
+		st, err := wire.DecodeMovement(nil, l, nil)
+		if err != nil || !st.TicksMonotonic || st.FirstTick != 5 || st.LastTick != 3 || st.Records != 4 {
+			t.Errorf("stats = %+v err=%v", st, err)
+		}
+	})
 }
