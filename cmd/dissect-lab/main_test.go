@@ -148,6 +148,8 @@ func TestRun_Errors(t *testing.T) { // Review Focus 5
 		{[]string{"movement", "--bogus", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "bogus"},
 		{[]string{"tlv", "--limit", "-1", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "limit"},
 		{[]string{"movement", "--limit", "-1", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "limit"},
+		{[]string{"tlv", "-h"}, 2, "[--limit N]"},
+		{[]string{"movement", "--help", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "[--no-payload]"},
 	} {
 		var out, errb bytes.Buffer
 		code := run(tc.args, &out, &errb)

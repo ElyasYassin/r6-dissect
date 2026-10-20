@@ -35,19 +35,37 @@ func (l *lab) parse(name string, args []string, setup func(*flag.FlagSet)) (stri
 		setup(fs)
 	}
 	if err := fs.Parse(args); err != nil {
-		return "", usageError(err.Error())
+		return "", flagError(fs, name, err)
 	}
 	if fs.NArg() == 0 {
 		return "", usageError("missing <round.rec>")
 	}
 	path := fs.Arg(0)
 	if err := fs.Parse(fs.Args()[1:]); err != nil {
-		return "", usageError(err.Error())
+		return "", flagError(fs, name, err)
 	}
 	if fs.NArg() != 0 {
 		return "", usageError("expected one round file")
 	}
 	return path, nil
+}
+
+// flagError turns a flag-parse failure into the CLI's one-line usage error; a
+// help request (-h, --help) answers with the subcommand's one-line usage so the
+// flags stay discoverable without the flag package's multi-line output.
+func flagError(fs *flag.FlagSet, name string, err error) error {
+	if !errors.Is(err, flag.ErrHelp) {
+		return usageError(err.Error())
+	}
+	u := "usage: dissect-lab " + name + " <round.rec>"
+	fs.VisitAll(func(f *flag.Flag) {
+		if f.DefValue == "false" {
+			u += " [--" + f.Name + "]"
+		} else {
+			u += " [--" + f.Name + " N]"
+		}
+	})
+	return usageError(u)
 }
 
 // load reads the decompressed buffer of one replay.
