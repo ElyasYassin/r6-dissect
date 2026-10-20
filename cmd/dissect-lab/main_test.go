@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/redraskal/r6-dissect/dissect"
 )
 
 func fixture(t *testing.T, season, name string) string {
@@ -148,6 +150,10 @@ func TestRun_Errors(t *testing.T) { // Review Focus 5
 		{[]string{"movement", "--bogus", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "bogus"},
 		{[]string{"tlv", "--limit", "-1", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "limit"},
 		{[]string{"movement", "--limit", "-1", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "limit"},
+		{[]string{"join", "/nonexistent.rec"}, 1, "nonexistent"},
+		{[]string{"graph", "/nonexistent.rec"}, 1, "nonexistent"},
+		{[]string{"join"}, 2, "missing"},
+		{[]string{"graph", t.TempDir()}, 2, "one round file"},
 		{[]string{"tlv", "-h"}, 2, "[--limit N]"},
 		{[]string{"movement", "--help", fixture(t, "Y11S3", "custom_clubhouse_short.rec")}, 2, "[--no-payload]"},
 	} {
@@ -156,6 +162,90 @@ func TestRun_Errors(t *testing.T) { // Review Focus 5
 		if code != tc.code || out.Len() != 0 || len(nonEmptyLines(errb.String())) != 1 || !strings.Contains(errb.String(), tc.msg) {
 			t.Errorf("%v: code=%d out=%q err=%q", tc.args, code, clip(out.String()), errb.String())
 		}
+	}
+}
+
+func TestRun_Join(t *testing.T) {
+	path := fixture(t, "Y11S3", "custom_fortress_plant.rec")
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	r, err := dissect.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Read(); !dissect.Ok(err) {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := run([]string{"join", path}, &out, &errb); code != 0 {
+		t.Fatal(code, errb.String())
+	}
+	lines := nonEmptyLines(out.String())
+	if len(lines) != len(r.MatchFeedback) {
+		t.Fatalf("lines = %d, matchFeedback = %d", len(lines), len(r.MatchFeedback))
+	}
+	found := false
+	for i, ln := range lines {
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(ln), &ev); err != nil {
+			t.Fatal(err)
+		}
+		for _, k := range []string{"seq", "type", "tick", "elapsedMs", "roundClockMs", "phase", "status"} {
+			if _, ok := ev[k]; !ok {
+				t.Errorf("line %d lacks %q: %s", i, k, ln)
+			}
+		}
+		if ev["type"] == "Kill" && ev["actor"] == "FallacyAsTR.NKG" && !found {
+			found = true
+			if ev["tick"] != 25743.0 || ev["roundClockMs"] != 106538.0 {
+				t.Errorf("first fortress kill: %s", ln)
+			}
+		}
+	}
+	if !found {
+		t.Error("no Kill by FallacyAsTR.NKG")
+	}
+}
+
+func TestRun_JoinLegacy(t *testing.T) {
+	var out, errb bytes.Buffer
+	code := run([]string{"join", fixture(t, "Y8S1", "quick_1.rec")}, &out, &errb)
+	if code != 1 || out.Len() != 0 || len(nonEmptyLines(errb.String())) != 1 || !strings.Contains(errb.String(), "no TLV channels") {
+		t.Errorf("code=%d out=%q err=%q", code, clip(out.String()), errb.String())
+	}
+}
+
+func TestRun_Graph(t *testing.T) {
+	var out, errb bytes.Buffer
+	if code := run([]string{"graph", fixture(t, "Y11S3", "custom_fortress_plant.rec")}, &out, &errb); code != 0 {
+		t.Fatal(code, errb.String())
+	}
+	n := 0
+	var last float64
+	for i, ln := range nonEmptyLines(out.String()) {
+		var e map[string]any
+		if err := json.Unmarshal([]byte(ln), &e); err != nil {
+			t.Fatal(err)
+		}
+		for _, k := range []string{"tick", "owner", "field", "target", "class", "index", "hasIndex"} {
+			if _, ok := e[k]; !ok {
+				t.Fatalf("line %d lacks %q: %s", i, k, ln)
+			}
+		}
+		if tick := e["tick"].(float64); tick < last {
+			t.Fatalf("line %d tick %v before %v", i, tick, last)
+		} else {
+			last = tick
+		}
+		if e["field"] == "27c08dca" && e["ownerPlayer"] != nil && e["ownerPlayer"] != "" {
+			n++
+		}
+	}
+	if n < 10 {
+		t.Errorf("27c08dca edges with ownerPlayer = %d", n)
 	}
 }
 
