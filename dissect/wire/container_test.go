@@ -245,7 +245,7 @@ func TestWalk_HeaderShapedRunInPreludeIsNotAHeader(t *testing.T) {
 
 // An empty channel (header straight into the next header) keeps both headers.
 func TestWalk_HeaderFollowedByHeader(t *testing.T) {
-	b := concat(channelHeader2(1), channelHeader2(2), envBytes(2, movePayload()), envBytes(3, movePayload()), terminator(lead))
+	b := concat(channelHeader2(1), channelHeaderN([8]byte{2}, lead, 2, 0), envBytes(2, movePayload()), envBytes(3, movePayload()), terminator(lead))
 	l, err := wire.Walk(b)
 	if err != nil {
 		t.Fatal(err)
