@@ -148,6 +148,20 @@ result = json.loads(ctypes.string_at(ptr))
 lib.dissect_free(ptr)
 ```
 
+## Research CLI (`dissect-lab`)
+`dissect-lab` is a research tool for the `.rec` wire format. It opens one round file, decompresses it, and prints what the byte-level decoders in `dissect/wire` find, one JSON object per line. It is built from `cmd/dissect-lab` with `go run ./cmd/dissect-lab <command> <round.rec>`, is not part of releases, and does not change the per-round JSON.
+
+| Command | Output |
+|---|---|
+| `segments <round.rec>` | One line per channel, one per unplaced gap, then a summary with `unplacedFraction`. |
+| `tlv <round.rec> [--limit N]` | One line per TLV token with tick, offset, op, object, field and value or target. |
+| `movement <round.rec> [--limit N] [--no-payload]` | One line per movement record with tick, entity, tag and payload hex. |
+| `coverage <round.rec>` | A single line with layout, TLV and movement statistics. |
+
+Exit codes are 0 on success, 2 on a usage error and 1 on a runtime error. A failed run prints one line to stderr and nothing to stdout.
+
+The byte grammar is documented in `docs/research/2026-10-19-rec-format-findings.md`; measured decoder coverage on the fixtures is in `docs/wire-coverage.md`.
+
 ## Updating Operator Data
 When new operators are added to the game, regenerate the operator roles mapping:
 ```bash
