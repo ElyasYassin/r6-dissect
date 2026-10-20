@@ -213,107 +213,44 @@ func sameLeadHeaderAt(b []byte, q int, lead uint32) bool {
 	return ok && h.lead == lead
 }
 
-// envChain is a run of consecutive envelopes found while checking header
-// candidates, grown on demand. Later candidates whose envelopes start inside
-// the run reuse it, so an envelope start is parsed once per lead.
-type envChain struct {
-	starts []int    // start of each envelope in the run
-	ticks  []uint32 // tick of each envelope in the run
-	pos    int      // where the next envelope would start
-	last   uint32   // tick of the final envelope in the run
-	done   bool     // the run ended at pos
-	st     envStatus
-	link   *chainLoc // the run continues inside another chain
-}
-
-type chainLoc struct {
-	c *envChain
-	i int
-}
-
-// scanner holds, per lead, the envelope starts already walked.
-type scanner struct {
-	b    []byte
-	memo map[uint32]map[int]chainLoc
-}
-
-// jump consumes m envelopes from index i of chain c. It returns the position
-// after them and envOK, or the failing status and how many were consumed.
-func (s *scanner) jump(lead uint32, c *envChain, i, m int) (pos int, st envStatus, n int) {
-	at := s.memo[lead]
-	if at == nil {
-		at = map[int]chainLoc{}
-		s.memo[lead] = at
-	}
-	for m > 0 {
-		if i < len(c.starts) {
-			t := min(m, len(c.starts)-i)
-			i, m, n = i+t, m-t, n+t
-			continue
-		}
-		if c.link != nil {
-			c, i = c.link.c, c.link.i
-			continue
-		}
-		if c.done {
-			return 0, c.st, n
-		}
-		if loc, ok := at[c.pos]; ok {
-			if loc.c.ticks[loc.i] < c.last {
-				c.done, c.st = true, envBad
-			} else {
-				l := loc
-				c.link = &l
-			}
-			continue
-		}
-		e, st := nextEnvelope(s.b, c.pos, lead, c.last)
-		if st != envOK {
-			c.done, c.st = true, st
-			continue
-		}
-		at[e.Start] = chainLoc{c, len(c.starts)}
-		c.starts = append(c.starts, e.Start)
-		c.ticks = append(c.ticks, e.Tick)
-		c.last, c.pos = e.Tick, e.End
-	}
-	for i >= len(c.starts) && c.link != nil {
-		c, i = c.link.c, c.link.i
-	}
-	if i < len(c.starts) {
-		return c.starts[i], envOK, n
-	}
-	return c.pos, envOK, n
-}
+// firstHeaderProbe bounds the work spent on one first-header candidate: at
+// most this many envelopes are chained before the candidate is accepted. A
+// channel with fewer envelopes is checked to its end (the next header or the
+// terminator). The bound keeps the scan linear in the buffer whatever the
+// input: without it, crafted inputs whose header-shaped runs share long
+// envelope runs cost a chain walk per candidate (quadratic time), and the
+// memo that avoids re-walking them grows with the number of distinct leads.
+// A candidate with firstHeaderProbe chained envelopes behind a strict header
+// is a channel by the grammar; if its chain breaks later the main loop
+// records the break as a gap.
+const firstHeaderProbe = 64
 
 // validFirstHeader accepts the header at p as the opening one of the buffer
-// when its count-2 envelopes parse with non-decreasing ticks no later than the
-// lead and a same-lead header or the terminator follows. A buffer cut inside
-// the envelopes is accepted when at least two parsed, and one cut inside the
-// next header when the channel is complete and that header is a stub.
-func (s *scanner) validFirstHeader(p int) bool {
-	b := s.b
+// when its envelopes parse with non-decreasing ticks no later than the lead:
+// all count-2 of them, followed by a same-lead header or the terminator, when
+// the channel has at most firstHeaderProbe envelopes; the first
+// firstHeaderProbe otherwise. A buffer cut inside the envelopes is accepted
+// when at least two parsed, and one cut inside the next header when the
+// channel is complete and that header is a stub.
+func validFirstHeader(b []byte, p int) bool {
 	h, ok := parseHeader(b, p)
 	if !ok {
 		return false
 	}
 	m := int(h.count) - 2
-	q := p + channelHeaderLen
-	if m > 0 {
-		c, i := &envChain{pos: q}, 0
-		if s.memo[h.lead] != nil {
-			if loc, ok := s.memo[h.lead][q]; ok {
-				c, i = loc.c, loc.i
-			}
-		}
-		pos, st, n := s.jump(h.lead, c, i, m)
+	q, last := p+channelHeaderLen, uint32(0)
+	for i := 0; i < m && i < firstHeaderProbe; i++ {
+		e, st := nextEnvelope(b, q, h.lead, last)
 		switch st {
 		case envBad:
 			return false
 		case envOverrun:
-			return n >= 2
+			return i >= 2
 		}
-		q = pos
+		q, last = e.End, e.Tick
+	}
+	if m > firstHeaderProbe {
+		return true
 	}
 	return isTerminator(b, q, h.lead) || sameLeadHeaderAt(b, q, h.lead) ||
 		(len(b)-q < channelHeaderLen && m >= 2)
@@ -346,12 +283,11 @@ func leadingRun(b []byte, first int, lead uint32) int {
 // envelopes follow it, and after them comes the next header or the terminator.
 // Where that does not hold the bytes become a gap, and the walk resumes at the
 // next same-lead header; envelopes are never picked out of a gap. A buffer with
-// no valid first header yields ErrNoEnvelopes.
+// no valid first header (see validFirstHeader) yields ErrNoEnvelopes.
 func Walk(b []byte) (Layout, error) {
 	first := -1
-	sc := &scanner{b: b, memo: map[uint32]map[int]chainLoc{}}
 	for p := 0; p <= len(b)-channelHeaderLen; p++ {
-		if sc.validFirstHeader(p) {
+		if validFirstHeader(b, p) {
 			first = p
 			break
 		}

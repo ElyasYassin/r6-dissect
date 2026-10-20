@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -506,5 +507,66 @@ func TestWalk_LinearTime(t *testing.T) {
 		}
 		b = append(b, bytes.Repeat([]byte{0xee}, 12)...)
 		run(t, b)
+	})
+	// Memory as well as time: the allocation growth of one Walk is bounded.
+	runMem := func(t *testing.T, b []byte) (wire.Layout, error) {
+		t.Helper()
+		var before, after runtime.MemStats
+		runtime.GC()
+		runtime.ReadMemStats(&before)
+		start := time.Now()
+		l, err := wire.Walk(b)
+		d := time.Since(start)
+		runtime.ReadMemStats(&after)
+		grew := after.TotalAlloc - before.TotalAlloc
+		t.Logf("size=%d walk=%v alloc=%dMB", len(b), d, grew>>20)
+		if d >= limit {
+			t.Errorf("Walk took %v, limit %v", d, limit)
+		}
+		if grew >= 64<<20 {
+			t.Errorf("Walk allocated %d MB, limit 64", grew>>20)
+		}
+		return l, err
+	}
+	t.Run("distinct leads sharing an envelope run", func(t *testing.T) {
+		// K header candidates with distinct leads, each followed by one
+		// envelope whose payload spans the remaining candidates, so every
+		// candidate's chain lands on the same run of N envelopes.
+		const k, n = 10000, 10000
+		var b []byte
+		for i := 0; i < k; i++ {
+			b = append(b, channelHeaderN([8]byte{1}, uint32(100+i), 1<<20, 0)...)
+			b = append(b, concat(le32(0), le32(uint32((k-i-1)*57)), le32(0))...)
+		}
+		for i := 0; i < n; i++ {
+			b = append(b, envBytes(1, []byte{9})...)
+		}
+		b = append(b, bytes.Repeat([]byte{0xee}, 12)...)
+		l, err := runMem(t, b)
+		// The first candidate is a channel by the grammar: a strict header
+		// with a long chain behind it. Its chain breaks at the 0xee bytes,
+		// which the main loop reports as the trailing gap.
+		if err != nil || len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != n+1 {
+			t.Fatalf("err=%v channels=%d", err, len(l.Channels))
+		}
+		if g := l.Gaps[len(l.Gaps)-1]; g.End != len(b) {
+			t.Fatalf("last gap %v, want end %d", g, len(b))
+		}
+	})
+	t.Run("chained candidates", func(t *testing.T) {
+		// Candidate i's single envelope ends exactly where candidate i+1's
+		// envelope starts (its 45-byte payload is candidate i+1's header), so
+		// each chain runs through every later one.
+		const k = 20000
+		var b []byte
+		for i := 0; i < k; i++ {
+			b = append(b, channelHeaderN([8]byte{1}, lead, 1<<20, 0)...)
+			b = append(b, concat(le32(1), le32(45), le32(0))...)
+		}
+		b = append(b, bytes.Repeat([]byte{0xee}, 57)...)
+		l, err := runMem(t, b)
+		if err != nil || len(l.Channels) != 1 || len(l.Channels[0].Envelopes) != k {
+			t.Fatalf("err=%v channels=%d", err, len(l.Channels))
+		}
 	})
 }
