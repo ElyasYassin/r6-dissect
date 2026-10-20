@@ -82,3 +82,39 @@ func TestStopDefuserRunAtRoundEnd_IsDerived(t *testing.T) {
 		}
 	}
 }
+
+// Review Focus 4: an event with no buffer offset takes the last tick; one inside no envelope
+// takes the nearest earlier envelope; one before every envelope takes the first tick.
+func TestTickIndex_TickAt(t *testing.T) {
+	x := &tickIndex{
+		spans: []tickSpan{{100, 200, 10}, {200, 300, 20}, {400, 500, 30}},
+		first: 10, last: 30,
+	}
+	for _, tc := range []struct {
+		off  int
+		want uint32
+	}{{-1, 30}, {50, 10}, {100, 10}, {199, 10}, {200, 20}, {350, 20}, {400, 30}, {9999, 30}} {
+		if got := x.tickAt(tc.off); got != tc.want {
+			t.Errorf("tickAt(%d) = %d, want %d", tc.off, got, tc.want)
+		}
+	}
+}
+
+func TestBuildEvent_StatusAndData(t *testing.T) {
+	c := newMsClock()
+	c.observe(1, clockTok(fieldRoundTimer, 179))
+	c.observe(2, clockTok(fieldRoundClockMs, 179917))
+	hs := true
+	u := MatchUpdate{Type: Kill, Phase: ActionPhase, Headshot: &hs, TeamKill: true, Message: "m", Operator: Ash, offset: 5}
+	e := buildEvent(3, u, 2, c)
+	if e.Status != "observed" || e.Data["headshot"] != true || e.Data["teamKill"] != true || e.Data["message"] != "m" || e.Data["operator"] != Ash {
+		t.Fatalf("%+v", e)
+	}
+	u.derived = true
+	if e := buildEvent(3, u, 2, c); e.Status != "derived" {
+		t.Fatalf("%+v", e)
+	}
+	if e := buildEvent(0, MatchUpdate{Type: Kill, Phase: ActionPhase}, 2, c); e.Data != nil {
+		t.Fatalf("empty data should be omitted: %+v", e.Data)
+	}
+}
