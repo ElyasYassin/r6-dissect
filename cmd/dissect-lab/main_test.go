@@ -152,7 +152,15 @@ func TestRun_Errors(t *testing.T) { // Review Focus 5
 		var out, errb bytes.Buffer
 		code := run(tc.args, &out, &errb)
 		if code != tc.code || out.Len() != 0 || len(nonEmptyLines(errb.String())) != 1 || !strings.Contains(errb.String(), tc.msg) {
-			t.Errorf("%v: code=%d out=%q err=%q", tc.args, code, out.String(), errb.String())
+			t.Errorf("%v: code=%d out=%q err=%q", tc.args, code, clip(out.String()), errb.String())
 		}
 	}
+}
+
+// clip keeps a failure message readable when a command wrongly writes a whole stream to stdout.
+func clip(s string) string {
+	if len(s) > 200 {
+		return s[:200] + "…"
+	}
+	return s
 }
