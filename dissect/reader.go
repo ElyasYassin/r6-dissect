@@ -407,6 +407,10 @@ func (r *Reader) Uint64() (uint64, error) {
 	return binary.LittleEndian.Uint64(b), nil
 }
 
+// Data returns the decompressed replay. It is only available between NewReader and Read,
+// which releases the buffer.
+func (r *Reader) Data() []byte { return r.b }
+
 func (r *Reader) Write(w io.Writer) (n int, err error) {
 	return w.Write(r.b)
 }
