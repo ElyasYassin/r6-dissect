@@ -118,3 +118,27 @@ func TestBuildEvent_StatusAndData(t *testing.T) {
 		t.Fatalf("empty data should be omitted: %+v", e.Data)
 	}
 }
+
+// Read closes a plant/disable still running at round end through the derived path.
+func TestRead_RoundEndDefuserStopIsDerived(t *testing.T) {
+	d := newDefuserTestReplay()
+	defPawn := []byte{0x07, 0xB4, 0x0C, 0xF0}
+	d.spawn(t, d.r.Header.Players[1].slotID, defPawn)
+	d.timer(t, defPawn, defuserStateDisabling, 1, "6.983")
+	d.timer(t, defPawn, -1, 0.9, "6.300")
+	d.r.b = make([]byte, 4096)
+	d.r.offset = 0
+	d.r.clock = roundClock{}
+	if err := d.r.Read(); !Ok(err) {
+		t.Fatal(err)
+	}
+	var stop *MatchUpdate
+	for i := range d.r.MatchFeedback {
+		if d.r.MatchFeedback[i].Type == DefuserDisableStop {
+			stop = &d.r.MatchFeedback[i]
+		}
+	}
+	if stop == nil || stop.offset != -1 || !stop.derived {
+		t.Fatalf("%+v", stop)
+	}
+}
