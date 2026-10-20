@@ -284,6 +284,7 @@ func (m *MatchReader) Data() any {
 		Header
 		MatchFeedback []MatchUpdate      `json:"matchFeedback"`
 		PlayerStats   []PlayerRoundStats `json:"stats"`
+		TimelineError *TimelineError     `json:"timelineError,omitempty"`
 	}
 	type output struct {
 		Rounds      []round            `json:"rounds"`
@@ -295,6 +296,7 @@ func (m *MatchReader) Data() any {
 			Header:        r.Header,
 			MatchFeedback: r.MatchFeedback,
 			PlayerStats:   r.PlayerStats(),
+			TimelineError: r.timelineErr,
 		})
 	}
 	return output{
